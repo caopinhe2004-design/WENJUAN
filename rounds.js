@@ -38,6 +38,15 @@ function roundsClearQuiz(q){
 function roundsDone(q,k,answers,ready){
   return typeof duoNavQuestionDone==='function'?duoNavQuestionDone(q,k,answers,ready):duoHasAnswer(answers?.[k]);
 }
+function roundsProgressCount(q){
+  if(!duo.active||q.type!=='text')return answeredCount(q);
+  return q.questions.reduce((n,_,i)=>n+(roundsDone(q,duoQuestionKey(q.id,i),state.answers,state.ready)?1:0),0);
+}
+function roundsFirstUnfinished(q){
+  if(!duo.active||q.type!=='text')return firstUnanswered(q);
+  const i=q.questions.findIndex((_,i)=>!roundsDone(q,duoQuestionKey(q.id,i),state.answers,state.ready));
+  return i<0?0:i;
+}
 function roundsPairRows(q,remote){
   const rows=[];
   q.questions.forEach((item,i)=>{
@@ -85,7 +94,7 @@ function roundsArchiveFinishedOnHome(){
   if(!duo.active)return;
   const remote=duoRemoteState();if(!remote)return;
   QUIZZES.forEach(q=>{
-    if(answeredCount(q)!==q.questions.length)return;
+    if(roundsProgressCount(q)!==q.questions.length)return;
     const allRemote=q.questions.every((_,i)=>roundsDone(q,duoQuestionKey(q.id,i),remote.answers,remote.ready));
     if(allRemote)roundsArchive(q);
   });
@@ -134,7 +143,7 @@ function roundsShowRequest(action){
   };
 }
 function roundsRequestNew(q,mode='new'){
-  if(mode==='new'&&answeredCount(q)===q.questions.length&&!roundsArchive(q)){showToast('等答案同步完再开新一轮');return}
+  if(mode==='new'&&roundsProgressCount(q)===q.questions.length&&!roundsArchive(q)){showToast('等答案同步完再开新一轮');return}
   if(!duo.active){
     const text=mode==='restart'?`重新开始「${q.title}」？当前未完成的进度不会保留。`:`再玩一轮「${q.title}」？上一轮会留在历史里。`;
     if(confirm(text))roundsBeginNew(q,roundsNewMeta(q,mode),mode);return;
@@ -148,6 +157,11 @@ function roundsCheckRemoteAction(){
   if(!duo.active||!duo.accepted)return;
   const remote=duoRemoteState(),a=remote?.roundAction;if(!a)return;
   if(Date.now()-(a.at||0)>180000)return;
+  if(a.kind==='request'&&roundsAction?.kind==='request'&&a.id!==roundsAction.id){
+    // If both tap at almost the same moment, the lexicographically smaller request wins on both devices.
+    if(String(roundsAction.id)<String(a.id))return;
+    roundsHandledActions.add(roundsAction.id);roundsModalRemove(roundsAction.id);roundsAction=null;
+  }
   if(a.kind==='request'&&!roundsHandledActions.has(a.id)){roundsShowRequest(a);return}
   if(a.kind==='cancel'){roundsModalRemove(a.requestId);roundsHandledActions.add(a.requestId);return}
   if(roundsAction?.kind==='request'&&a.requestId===roundsAction.id){
@@ -156,8 +170,9 @@ function roundsCheckRemoteAction(){
     }
     if(a.kind==='accept'){
       const q=quiz(a.quizId||roundsAction.quizId);if(!q)return;
+      const mode=a.mode||roundsAction.mode||'new';
       const meta={id:a.nextRoundId||roundsAction.nextRoundId,seq:a.seq||roundsAction.seq,startedAt:a.startedAt||Date.now(),confirmed:Array.isArray(a.confirmed)?a.confirmed:[...duo.acceptedIds]};
-      roundsHandledActions.add(roundsAction.id);roundsModalRemove(roundsAction.id);roundsAction={kind:'done',requestId:a.requestId,clientId:duo.clientId,at:Date.now()};roundsBeginNew(q,meta,a.mode||roundsAction.mode||'new');roundsPublishAction();roundsClearActionSoon(1800);
+      roundsHandledActions.add(roundsAction.id);roundsModalRemove(roundsAction.id);roundsAction={kind:'done',requestId:a.requestId,clientId:duo.clientId,at:Date.now()};roundsBeginNew(q,meta,mode);roundsPublishAction();roundsClearActionSoon(1800);
     }
   }
 }
@@ -190,9 +205,10 @@ function roundsInjectHome(){
     link.innerHTML=`<span><b>以前玩过的</b><small>${history.length} 次</small></span><i>›</i>`;
     const anchor=app.querySelector('.play-picker')||app.querySelector('.duo-panel')||app.querySelector('.hero');anchor?.insertAdjacentElement('afterend',link);link.onclick=roundsHistoryList;
   }
+  const pills=app.querySelectorAll('.mini-row .pill');if(pills[1])pills[1].textContent=`这轮完成 ${QUIZZES.filter(q=>roundsProgressCount(q)===q.questions.length).length}/12`;
   app.querySelectorAll('.quiz-card-wrap').forEach(wrap=>{
     const btn=wrap.querySelector('[data-open]'),q=btn&&quiz(btn.dataset.open);if(!q)return;
-    const n=answeredCount(q),latest=roundsLatest(q.id),current=roundsCurrent(q),note=btn.querySelector('.progress-note');
+    const n=roundsProgressCount(q),latest=roundsLatest(q.id),current=roundsCurrent(q),note=btn.querySelector('.progress-note');
     if(note){
       if(n===q.questions.length&&latest)note.textContent=`上次 ${roundsHistoryLabel(latest)} · ${roundsFormatDate(latest.completedAt)}`;
       else if(n>0)note.textContent=`${latest?'新一轮 · ':''}${n}/${q.questions.length}`;
@@ -201,7 +217,7 @@ function roundsInjectHome(){
     }
     btn.onclick=()=>{
       if(n===q.questions.length){quizResult(q);return}
-      roundsEnsureCurrent(q);openQuiz(q.id,firstUnanswered(q));
+      roundsEnsureCurrent(q);openQuiz(q.id,roundsFirstUnfinished(q));
     };
   });
 }
@@ -229,16 +245,24 @@ function roundsQuestionControls(){
 function roundsResultControls(q){
   if(route.view!=='result')return;
   const result=app.querySelector('.single-result');if(!result)return;
-  const n=answeredCount(q),actions=result.querySelector('.result-actions');if(!actions)return;
+  const n=roundsProgressCount(q),actions=result.querySelector('.result-actions');if(!actions)return;
   if(n===q.questions.length){
     roundsArchive(q);
     actions.innerHTML='<button class="primary" data-round-new>再玩一轮</button><button class="ghost" data-round-home>回首页</button>';
     actions.querySelector('[data-round-new]').onclick=()=>roundsRequestNew(q,'new');actions.querySelector('[data-round-home]').onclick=home;
   }else{
     actions.innerHTML='<button class="primary" data-round-continue>接着答</button><button class="ghost" data-round-restart>重新开始这轮</button>';
-    actions.querySelector('[data-round-continue]').onclick=()=>openQuiz(q.id,firstUnanswered(q));actions.querySelector('[data-round-restart]').onclick=()=>roundsRequestNew(q,'restart');
+    actions.querySelector('[data-round-continue]').onclick=()=>openQuiz(q.id,roundsFirstUnfinished(q));actions.querySelector('[data-round-restart]').onclick=()=>roundsRequestNew(q,'restart');
   }
 }
+
+// The random picker follows the same resume rule as tapping a card.
+if(typeof polishPick==='function')polishPick=function(ids){
+  const choices=ids.map(quiz).filter(Boolean);if(!choices.length)return;
+  const q=choices[Math.floor(Math.random()*choices.length)],n=roundsProgressCount(q);
+  if(n===q.questions.length){quizResult(q);return}
+  roundsEnsureCurrent(q);openQuiz(q.id,roundsFirstUnfinished(q));
+};
 
 const roundsBaseOpenQuiz=openQuiz;
 openQuiz=function(id,index=0){const q=quiz(id);if(q)roundsEnsureCurrent(q);return roundsBaseOpenQuiz(id,index)};
