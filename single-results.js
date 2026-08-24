@@ -1,5 +1,4 @@
-// Single-questionnaire result/export layer.
-// Keeps each quiz independent: view, export, copy, and reset only affect the selected quiz.
+// Single-questionnaire result layer. Each quiz stays independent; realtime mode removes answer-file import/export needs.
 
 home = function(){
   route={view:'home',quizId:null,index:0};
@@ -8,8 +7,8 @@ home = function(){
     <section class="hero">
       <div class="eyebrow">COUPLE · SLEEP QUIZ</div>
       <h1>今晚玩哪个？</h1>
-      <p>12 套情侣睡前小游戏。每套独立作答、独立查看、独立导出，进度自动保存在当前设备。</p>
-      <div class="mini-row"><span class="pill">12 种玩法</span><span class="pill">已完成 ${done}/12</span><span class="pill">答案仅保存在本机</span></div>
+      <p>12 套情侣睡前小游戏。单人可以本机保存，进入双人房间后可实时同步双方进度和答案。</p>
+      <div class="mini-row"><span class="pill">12 种玩法</span><span class="pill">已完成 ${done}/12</span><span class="pill">自动保存</span></div>
     </section>
     <section class="grid">
       ${QUIZZES.map(q=>{
@@ -24,7 +23,7 @@ home = function(){
         </div>`;
       }).join('')}
     </section>
-    <div class="footer-note">每一套各自作答 · 各自查看 · 各自导出</div>`;
+    <div class="footer-note">每套问卷独立作答 · 自动保存 · 双人房间实时同步</div>`;
   app.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openQuiz(b.dataset.open));
   app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>quizResult(quiz(b.dataset.view)));
 };
@@ -52,15 +51,11 @@ quizResult = function(q){
         ${q.questions.map((it,i)=>`<div class="summary-item"><b>${i+1}. ${esc(Array.isArray(it)?it[0]:it)}</b><span class="${answerLabel(q,i)==='未作答'?'muted-answer':''}">${esc(answerLabel(q,i))}</span></div>`).join('')}
       </div>
       <div class="result-actions sticky-actions">
-        <button class="primary" data-export>导出这一套 JSON</button>
-        <button class="ghost" data-copy>复制这一套文本</button>
-        <button class="ghost" data-again>${n===q.questions.length?'查看 / 修改答案':'继续作答'}</button>
+        <button class="primary" data-again>${n===q.questions.length?'查看 / 修改答案':'继续作答'}</button>
         <button class="ghost danger" data-reset>清空这一套</button>
       </div>
     </section>`;
   app.querySelector('[data-home]').onclick=home;
-  app.querySelector('[data-export]').onclick=()=>exportQuizJSON(q);
-  app.querySelector('[data-copy]').onclick=()=>copyQuizText(q);
   app.querySelector('[data-again]').onclick=()=>openQuiz(q.id,firstUnanswered(q));
   app.querySelector('[data-reset]').onclick=()=>resetQuiz(q);
 };
@@ -68,36 +63,6 @@ quizResult = function(q){
 function firstUnanswered(q){
   const i=q.questions.findIndex((_,i)=>state.answers[key(q.id,i)]===undefined||state.answers[key(q.id,i)]==='');
   return i<0?0:i;
-}
-
-function buildQuizExport(q){
-  return {
-    title:'情侣睡前问卷答卷',
-    quizId:q.id,
-    quizTitle:q.title,
-    exportedAt:new Date().toISOString(),
-    answered:answeredCount(q),
-    total:q.questions.length,
-    answers:q.questions.map((it,i)=>({question:Array.isArray(it)?it[0]:it,answer:answerLabel(q,i)}))
-  };
-}
-
-function safeQuizName(s){return s.replace(/[\\/:*?"<>|]/g,'_')}
-
-function exportQuizJSON(q){
-  const blob=new Blob([JSON.stringify(buildQuizExport(q),null,2)],{type:'application/json;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`${safeQuizName(q.title)}_答卷_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  showToast(`已导出「${q.title}」`);
-}
-
-async function copyQuizText(q){
-  const d=buildQuizExport(q);
-  const text=`【${q.title}】\n`+d.answers.filter(a=>a.answer!=='未作答').map((a,i)=>`${i+1}. ${a.question}：${a.answer}`).join('\n');
-  try{await navigator.clipboard.writeText(text);showToast(`已复制「${q.title}」`)}catch{showToast('浏览器未允许复制')}
 }
 
 function resetQuiz(q){
@@ -108,5 +73,4 @@ function resetQuiz(q){
   showToast(`已清空「${q.title}」`);
 }
 
-// Re-render the page after overriding the original aggregate-result behavior.
 home();
