@@ -67,8 +67,8 @@ function round3ResultCopy(q,pairs){
   if(q.id==='lights')return {...basic,label:'题亮了同一种灯',chips:[['同色',same],['不同色',diff]],note:diff?'不同色的几题，正好留着聊。':'这套居然全同色。'};
   if(q.id==='who')return {...basic,label:'题你们看法一样',chips:[['看法一样',same],['不一样',diff]],note:diff?'那几题不一样的，往往最好笑。':'彼此眼里的你们还挺一致。'};
   if(q.id==='cohabit')return {...basic,label:'题生活习惯撞上',chips:[['撞上',same],['不一样',diff]],note:diff?'不一样的地方，提前知道就挺好。':'生活习惯意外地合拍。'};
-  if(q.id==='prefer')return {...basic,label:'题偏好一样',chips:[['偏好一样',same],['有差别',diff]],note:diff?'有差别的几题可以慢慢记住。':'这套偏好几乎一个模子。'};
-  if(q.id==='absurd')return {...basic,label:'题脑回路撞上',chips:[['撞上',same],['各想各的',diff]],note:diff?'答案越岔越好玩。':'离谱得还挺同步。'};
+  if(q.id==='pref')return {...basic,label:'题偏好一样',chips:[['偏好一样',same],['有差别',diff]],note:diff?'有差别的几题可以慢慢记住。':'这套偏好几乎一个模子。'};
+  if(q.id==='odd')return {...basic,label:'题脑回路撞上',chips:[['撞上',same],['各想各的',diff]],note:diff?'答案越岔越好玩。':'离谱得还挺同步。'};
   if(q.type==='scale'){
     const commonHigh=pairs.filter(x=>Number(x.lv)>=4&&Number(x.rv)>=4).length;
     const avgDiff=both?(pairs.reduce((n,x)=>n+Math.abs(Number(x.lv)-Number(x.rv)),0)/both).toFixed(1):'0.0';
@@ -81,7 +81,7 @@ function round3ResultCopy(q,pairs){
   if(q.type==='text'){
     let note='下面慢慢对答案。';
     if(q.id==='memory')note='看看同一段回忆，在两个人脑子里长什么样。';
-    else if(q.id==='truth')note='慢慢看，不用急着给结论。';
+    else if(q.id==='talk')note='慢慢看，不用急着给结论。';
     else if(q.id==='whatif')note='脑洞不一样，反而更有得聊。';
     return {big:`${both} / ${q.questions.length}`,label:'题都写完了',chips:[],note};
   }
