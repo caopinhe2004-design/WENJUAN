@@ -16,11 +16,14 @@ const specs={
   talk:{kind:'text'}
 };
 const quizzes=new Map(Object.keys(specs).map(id=>[id,{id,questions:null}]));
-const context=vm.createContext({quiz:id=>quizzes.get(id)});
+const QUIZZES=[...quizzes.values()];
+const context=vm.createContext({quiz:id=>quizzes.get(id),QUIZZES});
 for(const id of Object.keys(specs)){
   const file=`banks/${id}.js`;
   vm.runInContext(fs.readFileSync(file,'utf8'),context,{filename:file});
 }
+vm.runInContext(fs.readFileSync('banks/normalize.js','utf8'),context,{filename:'banks/normalize.js'});
+
 let bad=false;
 for(const [id,spec] of Object.entries(specs)){
   const questions=quizzes.get(id).questions;
