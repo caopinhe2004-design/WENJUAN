@@ -1,0 +1,1 @@
+.question-card.food-question h3{margin-bottom:8px}.food-scene{margin:-2px 0 22px;color:#786d67;font-size:clamp(15px,3.7vw,18px);line-height:1.72;font-weight:400;letter-spacing:0}.food-question .options{margin-top:4px}@media(min-width:720px){.food-question .options.two-col{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:719px){.food-scene{margin-bottom:19px}}
