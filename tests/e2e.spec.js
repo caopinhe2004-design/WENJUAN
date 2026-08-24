@@ -139,3 +139,67 @@ test('双客户端同步、自由回答、离线和回来', async ({ browser }) 
   await contextB.close();
   await contextA.close();
 });
+
+test('历史记录显示具体轮次并可导出本轮和整套 Word', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await openFresh(page);
+
+  await page.evaluate(() => {
+    const q = quiz('either');
+    const now = Date.now();
+    const participants = [{ id: 'a', name: '甲' }, { id: 'b', name: '乙' }];
+    const entries = [];
+    for (let part = 1; part <= 4; part++) {
+      const start = (part - 1) * 25;
+      entries.push({
+        id: `history-test-${part}`,
+        quizId: q.id,
+        quizTitle: q.title,
+        quizIcon: q.icon,
+        quizType: q.type,
+        seq: part,
+        startedAt: now - part * 10000,
+        completedAt: now - part * 10000,
+        participants,
+        sessionPart: part,
+        sessionStart: start + 1,
+        sessionEnd: start + 25,
+        questions: q.bankQuestions.slice(start, start + 25).map((item, i) => ({
+          question: Array.isArray(item) ? item[0] : item,
+          values: [`甲的答案 ${start + i + 1}`, `乙的答案 ${start + i + 1}`]
+        }))
+      });
+    }
+    roundsHistorySave(entries);
+    home();
+  });
+
+  await expect(page.locator('[data-history-corner]')).toBeVisible();
+  await page.locator('[data-history-corner]').click();
+  await expect(page.locator('[data-history-group="either"]')).toContainText('已完成 4/4 轮');
+  await expect(page.locator('[data-history-group="either"]')).toContainText('甲的答案 1');
+  await expect(page.locator('[data-history-group="either"]')).toContainText('乙的答案 1');
+  await expect(page.locator('[data-export-set="either"]')).toBeVisible();
+
+  const [setDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('[data-export-set="either"]').click()
+  ]);
+  expect(setDownload.suggestedFilename()).toContain('整套');
+  expect(setDownload.suggestedFilename()).toMatch(/\.doc$/);
+
+  await page.locator('[data-view-round="history-test-1"]').click();
+  await expect(page.locator('.history-answers article')).toHaveCount(25);
+  await expect(page.locator('.history-answers article').first()).toContainText('甲的答案 1');
+  await expect(page.locator('.history-answers article').first()).toContainText('乙的答案 1');
+
+  const [roundDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('[data-export-round="history-test-1"]').click()
+  ]);
+  expect(roundDownload.suggestedFilename()).toContain('第1轮');
+  expect(roundDownload.suggestedFilename()).toMatch(/\.doc$/);
+
+  await context.close();
+});
