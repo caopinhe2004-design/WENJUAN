@@ -8,14 +8,14 @@ const POLISH_META={
   memory:{mood:'回忆',time:'约 10 分钟',hint:'记得不一样也没关系，正好聊聊'},
   who:{mood:'互相吐槽',time:'约 6 分钟',hint:'A、B 在这个房间里一直是同一个人'},
   cohabit:{mood:'生活',time:'约 7 分钟',hint:'按真实习惯选，别选理想中的自己'},
-  prefer:{mood:'偏好',time:'约 6 分钟',hint:'喜欢、可以、不太行，按直觉来'},
-  heartbeat:{mood:'甜一点',time:'约 5 分钟',hint:'0 到 5 分，看看哪些事最戳你'},
-  absurd:{mood:'离谱',time:'约 5 分钟',hint:'越别认真想越好玩'},
-  truth:{mood:'慢慢聊',time:'约 10 分钟',hint:'不赶时间，想说多少就说多少'}
+  pref:{mood:'偏好',time:'约 6 分钟',hint:'喜欢、可以、不太行，按直觉来'},
+  sweet:{mood:'甜一点',time:'约 5 分钟',hint:'0 到 5 分，看看哪些事最戳你'},
+  odd:{mood:'离谱',time:'约 5 分钟',hint:'越别认真想越好玩'},
+  talk:{mood:'慢慢聊',time:'约 10 分钟',hint:'不赶时间，想说多少就说多少'}
 };
 const POLISH_POOLS={
-  easy:['either','who','absurd','heartbeat'],
-  talk:['lights','cohabit','prefer','truth'],
+  easy:['either','who','odd','sweet'],
+  talk:['lights','cohabit','pref','talk'],
   wild:['whatif','memory','rank','guess']
 };
 function polishPartner(){const n=typeof duoRemoteNickname==='function'?duoRemoteNickname():'TA';return !n||n==='对方'?'TA':n}
