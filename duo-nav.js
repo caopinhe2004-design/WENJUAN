@@ -1,8 +1,9 @@
-// Duo room navigation: both people stay in the same quiz and on the same question.
-// Answers remain independent; nobody can move away until both have finished the current question.
+// Keep both people in the same quiz and on the same question.
+// Navigation rides on the existing encrypted state channel so it uses the same proven MQTT permissions as answers.
 let duoNavApplying=false;
 let duoNavPending=null;
 let duoNavDirty=false;
+let duoNavStarting=false;
 let duoNavClock=0;
 let duoNavApplied={clock:0,clientId:''};
 let duoNavWanted={view:'home',quizId:null,index:0};
@@ -15,9 +16,9 @@ function duoNavNormalize(view,quizId=null,index=0){
   }
   return {view:'home',quizId:null,index:0};
 }
-function duoNavRemember(view,quizId=null,index=0){duoNavWanted=duoNavNormalize(view,quizId,index)}
-function duoNavVersion(msg){return {clock:Number(msg?.clock)||1,clientId:String(msg?.clientId||'')}}
+function duoNavVersion(nav){return {clock:Number(nav?.clock)||0,clientId:String(nav?.clientId||'')}}
 function duoNavVersionNewer(a,b){return a.clock>b.clock||(a.clock===b.clock&&a.clientId>b.clientId)}
+function duoNavRemember(view,quizId=null,index=0){duoNavWanted=duoNavNormalize(view,quizId,index)}
 function duoNavReady(){if(!state.ready||typeof state.ready!=='object')state.ready={};return state.ready}
 function duoNavQuestionDone(q,k,answers=state.answers,ready=state.ready){
   const has=duoHasAnswer(answers?.[k]);
@@ -27,33 +28,40 @@ function duoNavDoneCount(q,snapshot){
   if(!snapshot)return 0;
   return q.questions.reduce((n,_,i)=>n+(duoNavQuestionDone(q,duoQuestionKey(q.id,i),snapshot.answers,snapshot.ready)?1:0),0);
 }
-async function duoNavPublish(view,quizId=null,index=0){
+function duoNavTouch(view,quizId=null,index=0){
   duoNavRemember(view,quizId,index);
   duoNavClock=Math.max(duoNavClock,duoNavApplied.clock)+1;
-  const version={clock:duoNavClock,clientId:duo.clientId};
-  duoNavApplied=version;
-  if(!duo.active)return;
-  if(!duo.accepted||!duo.mqtt?.connected){duoNavDirty=true;return}
+  duoNavApplied={clock:duoNavClock,clientId:duo.clientId};
+  duoNavDirty=true;
+  duoNavFlush();
+}
+function duoNavFlush(){
+  if(!duoNavDirty||!duo.active||!duo.accepted||!duo.mqtt?.connected)return;
   duoNavDirty=false;
-  await duoPublish('nav',{
-    v:2,kind:'nav',clientId:duo.clientId,
-    view:duoNavWanted.view,quizId:duoNavWanted.quizId,index:duoNavWanted.index,
-    clock:version.clock,eventId:crypto.randomUUID()
-  },true);
+  duoPublishState().catch(()=>{duoNavDirty=true});
 }
-function duoNavFlushDirty(){
-  if(duoNavDirty&&duo.active&&duo.accepted&&duo.mqtt?.connected){
-    duoNavPublish(duoNavWanted.view,duoNavWanted.quizId,duoNavWanted.index).catch(()=>{});
-  }
+function duoNavPayload(){
+  return {
+    view:duoNavWanted.view,
+    quizId:duoNavWanted.quizId,
+    index:duoNavWanted.index,
+    clock:duoNavApplied.clock,
+    clientId:duo.clientId
+  };
 }
-function duoNavApply(msg){
-  if(!msg||msg.clientId===duo.clientId||!duo.active||!duo.accepted)return;
-  if(!duo.acceptedIds.includes(msg.clientId))return;
-  const version=duoNavVersion(msg);
-  duoNavClock=Math.max(duoNavClock,version.clock);
+function duoNavFromSnapshot(snapshot){
+  if(snapshot?.nav)return snapshot.nav;
+  if(snapshot?.currentQuiz)return {view:'quiz',quizId:snapshot.currentQuiz,index:snapshot.index||0,clock:0,clientId:snapshot.clientId};
+  return null;
+}
+function duoNavApplySnapshot(snapshot){
+  if(!snapshot||snapshot.clientId===duo.clientId||!duo.active||!duo.accepted)return;
+  if(!duo.acceptedIds.includes(snapshot.clientId)){duoNavPending=snapshot;return}
+  const nav=duoNavFromSnapshot(snapshot);if(!nav)return;
+  const version=duoNavVersion(nav);duoNavClock=Math.max(duoNavClock,version.clock);
   if(!duoNavVersionNewer(version,duoNavApplied))return;
   duoNavApplied=version;duoNavPending=null;
-  const target=duoNavNormalize(msg.view,msg.quizId,msg.index);
+  const target=duoNavNormalize(nav.view,nav.quizId,nav.index);
   duoNavRemember(target.view,target.quizId,target.index);
   duoNavApplying=true;
   try{
@@ -74,8 +82,7 @@ function duoNavApply(msg){
   }finally{duoNavApplying=false}
 }
 function duoNavTryPending(){
-  if(!duoNavPending||!duo.active||!duo.accepted)return;
-  if(duo.acceptedIds.includes(duoNavPending.clientId))duoNavApply(duoNavPending);
+  if(duoNavPending&&duo.acceptedIds.includes(duoNavPending.clientId))duoNavApplySnapshot(duoNavPending);
 }
 function duoNavCurrentAnswerState(){
   if(!duo.active||route.view!=='quiz')return null;
@@ -117,9 +124,31 @@ function duoNavGateQuestion(){
   };
 }
 
-// Realtime snapshots also carry the ready state used by open-ended questions.
+// Add shared navigation and text-ready state to the same encrypted snapshot already used for answers.
 const duoNavBaseLocalState=duoLocalState;
-duoLocalState=function(){const snap=duoNavBaseLocalState();snap.ready=state.ready||{};return snap};
+duoLocalState=function(){
+  const snap=duoNavBaseLocalState();
+  snap.ready=state.ready||{};
+  snap.nav=duoNavPayload();
+  return snap;
+};
+
+// Handle remote state here so navigation is applied as soon as that proven channel delivers it.
+const duoNavBaseHandleMessage=duoHandleMessage;
+duoHandleMessage=function(topic,payload){
+  if(topic.includes('/state/')){
+    const id=topic.split('/').pop();
+    if(!payload?.length){duo.states.delete(id);duoRefreshUI();return}
+    duoDecrypt(new TextDecoder().decode(payload)).then(msg=>{
+      if(!msg||!msg.clientId)return;
+      duo.states.set(msg.clientId,msg);
+      duoNavApplySnapshot(msg);
+      duoRefreshUI();
+    });
+    return;
+  }
+  duoNavBaseHandleMessage(topic,payload);
+};
 
 // Use the same completion rule in the live question card, including text drafts.
 duoDecorateQuestion=function(){
@@ -128,7 +157,7 @@ duoDecorateQuestion=function(){
   const localV=state.answers?.[k],remoteV=remote?.answers?.[k];
   const localHas=duoHasAnswer(localV),remoteHas=duoHasAnswer(remoteV);
   const localDone=duoNavQuestionDone(q,k,state.answers,state.ready),remoteDone=duoNavQuestionDone(q,k,remote?.answers,remote?.ready);
-  let where='';if(remote?.currentQuiz){where=`${partner} 在第 ${(remote.index||0)+1} 题`}
+  let where='';if(remote?.currentQuiz)where=`${partner} 在第 ${(remote.index||0)+1} 题`;
   const localText=localDone?'✓ 答好了':q.type==='text'&&localHas?'… 还在写':'○ 还没答';
   const remoteText=remoteDone?'✓ 答好了':q.type==='text'&&remoteHas?'… 还在写':duoPartnerOnline()?'○ 还没答':'○ 离线';
   const bar=document.createElement('div');bar.className='duo-livebar';
@@ -141,7 +170,7 @@ duoDecorateQuestion=function(){
   }
 };
 
-// Results follow the same privacy rule: unfinished drafts never reveal the other person's answer.
+// Results keep the same privacy rule: unfinished drafts never reveal the other person's answer.
 duoDecorateResult=function(q){
   if(!duo.active)return;
   const result=app.querySelector('.single-result');if(!result)return;
@@ -163,36 +192,15 @@ duoDecorateResult=function(q){
   result.insertBefore(box,list||result.querySelector('.result-actions'));
 };
 
-const duoNavBaseHandleMessage=duoHandleMessage;
-duoHandleMessage=function(topic,payload){
-  if(topic===`${duo.topicBase}/nav`){
-    if(!payload?.length)return;
-    duoDecrypt(new TextDecoder().decode(payload)).then(msg=>{
-      if(!msg||msg.kind!=='nav'||msg.clientId===duo.clientId)return;
-      const version=duoNavVersion(msg);duoNavClock=Math.max(duoNavClock,version.clock);
-      if(!duoNavVersionNewer(version,duoNavApplied))return;
-      duoNavPending=msg;duoNavTryPending();
-    });
-    return;
-  }
-  duoNavBaseHandleMessage(topic,payload);
-};
-
 const duoNavBaseRefreshUI=duoRefreshUI;
-duoRefreshUI=function(){duoNavBaseRefreshUI();duoNavTryPending();duoNavFlushDirty();duoNavGateQuestion()};
-
-const duoNavBaseConnect=duoConnect;
-duoConnect=function(){
-  duoNavBaseConnect();
-  if(!duo.mqtt)return;
-  duo.mqtt.subscribe(`${duo.topicBase}/nav`);
-  duo.mqtt.on('connect',()=>setTimeout(()=>duoNavFlushDirty(),350));
-};
+duoRefreshUI=function(){duoNavBaseRefreshUI();duoNavTryPending();duoNavFlush();duoNavGateQuestion()};
 
 const duoNavBaseActivate=duoActivate;
 duoActivate=async function(secret){
   duoNavPending=null;duoNavDirty=false;duoNavClock=0;duoNavApplied={clock:0,clientId:''};duoNavRemember('home');
-  const out=await duoNavBaseActivate(secret);duoNavReady();return out;
+  duoNavStarting=true;
+  try{const out=await duoNavBaseActivate(secret);duoNavReady();return out}
+  finally{duoNavStarting=false}
 };
 
 const duoNavBaseSave=save;
@@ -217,19 +225,19 @@ openQuiz=function(id,index=0){
   const target=duoNavNormalize('quiz',id,index);
   const changed=route.view!=='quiz'||route.quizId!==target.quizId||route.index!==target.index;
   duoNavBaseOpenQuiz(target.quizId,target.index);
-  if(duo.active&&!duoNavApplying&&changed)duoNavPublish('quiz',target.quizId,target.index).catch(()=>{});
+  if(duo.active&&!duoNavApplying&&!duoNavStarting&&changed)duoNavTouch('quiz',target.quizId,target.index);
 };
 
 const duoNavBaseQuizResult=quizResult;
 quizResult=function(q){
   const changed=route.view!=='result'||route.quizId!==q.id;
   duoNavBaseQuizResult(q);
-  if(duo.active&&!duoNavApplying&&changed)duoNavPublish('result',q.id,q.questions.length-1).catch(()=>{});
+  if(duo.active&&!duoNavApplying&&!duoNavStarting&&changed)duoNavTouch('result',q.id,q.questions.length-1);
 };
 
 const duoNavBaseHome=home;
 home=function(){
   const changed=route.view!=='home';
   duoNavBaseHome();
-  if(duo.active&&!duoNavApplying&&changed)duoNavPublish('home').catch(()=>{});
+  if(duo.active&&!duoNavApplying&&!duoNavStarting&&changed)duoNavTouch('home');
 };
