@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="app-booting">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -7,6 +7,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>情侣睡前问卷</title>
+  <style>
+    html{background:#f7f1ee}
+    html.app-booting body{visibility:hidden}
+  </style>
+  <script>
+    // Fail-safe: never leave the page hidden if a later enhancement script throws.
+    window.__coupleQuizBootFallback=setTimeout(function(){document.documentElement.classList.remove('app-booting')},2200);
+  </script>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="single-results.css">
   <link rel="stylesheet" href="duo.css">
@@ -56,5 +64,13 @@
   <script src="session-mode.js?v=20260824-1930"></script>
   <script src="nav-sync-fix.js?v=20260824-1930"></script>
   <script src="presence-will.js?v=20260824-1934"></script>
+  <script>
+    (function(){
+      clearTimeout(window.__coupleQuizBootFallback);
+      var reveal=function(){document.documentElement.classList.remove('app-booting')};
+      if(window.requestAnimationFrame)requestAnimationFrame(function(){requestAnimationFrame(reveal)});
+      else reveal();
+    })();
+  </script>
 </body>
 </html>
