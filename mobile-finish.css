@@ -1,0 +1,120 @@
+/* Final phone + tablet refinement. Visual/responsive only; no quiz or sync rules live here. */
+html{min-height:100%;scroll-padding-bottom:calc(104px + env(safe-area-inset-bottom))}
+body{min-height:100dvh}
+.app-shell{min-height:100dvh}
+
+/* Reliable touch targets and less accidental double-tap behavior. */
+button,.option,.scale button,.smallbtn,.history-row,.history-link,.round-restart-current{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.back,.ghost,.primary,.option,.duo-actions button,.duo-reveal,.duo-modal-actions button,.play-picker-actions button,.rank-confirm{min-height:44px}
+
+/* Long questions/options should wrap, while names/status labels truncate instead of stretching layouts. */
+.question-card h3,.option,.rank-item>span:nth-child(2),.duo-reveal-row,.summary-item,.history-answers h3,.history-answers p,.result-extra-summary p{overflow-wrap:anywhere;word-break:break-word}
+.option{min-width:0;line-height:1.5}
+.option.selected{padding-right:44px}
+.option.selected::after{right:15px}
+.title-wrap h2{max-width:100%}
+.duo-panel-head,.duo-live-head{min-width:0}
+.duo-panel-head>div{min-width:0}
+.duo-badge{flex:0 0 auto}
+.duo-live-head span{min-width:0;max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.duo-answer-pill{min-width:0}
+.duo-answer-pill strong{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.duo-result-answers small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history-people span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Text entry: 16px prevents iOS zoom; scroll margin keeps the field clear of the keyboard. */
+.textarea,.duo-modal input{font-size:16px!important;scroll-margin-top:20px;scroll-margin-bottom:150px}
+.textarea{max-height:52dvh;line-height:1.65}
+body.keyboard-open .nav{position:static;bottom:auto;background:transparent;padding-top:12px}
+body.keyboard-open .app-shell{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+body.keyboard-open .question-card{scroll-margin-top:12px;scroll-margin-bottom:20px}
+
+/* Keep the actual answering surface readable on large tablets instead of stretching edge-to-edge. */
+@media(min-width:700px){
+  .question-card,.progress-wrap{max-width:820px;margin-left:auto;margin-right:auto}
+  .topbar{max-width:900px;margin-left:auto;margin-right:auto}
+  .single-result{max-width:840px;margin-left:auto;margin-right:auto}
+  .duo-livebar{max-width:100%}
+}
+
+/* Phone portrait. */
+@media(max-width:560px){
+  .app-shell{padding-left:14px;padding-right:14px}
+  .topbar{gap:9px}
+  .back{padding-left:12px;padding-right:12px;white-space:nowrap}
+  .title-wrap small{font-size:11px;line-height:1.35}
+  .title-wrap h2{font-size:22px}
+  .question-card{border-radius:24px;padding:19px 16px}
+  .question-card h3{margin:8px 0 18px;line-height:1.38}
+  .options{gap:10px}
+  .option{padding:13px 14px;min-height:52px;border-radius:16px}
+  .option.selected{padding-right:42px}
+  .option .letter{width:26px;height:26px;margin-right:8px;border-radius:9px}
+  .rank-item{grid-template-columns:34px minmax(0,1fr) auto;padding:9px;gap:8px}
+  .rank-num{width:30px;height:30px}
+  .smallbtn{width:42px;height:42px}
+  .nav{gap:9px;margin-top:12px;bottom:calc(8px + env(safe-area-inset-bottom))}
+  .nav .ghost,.nav .primary{padding-left:10px;padding-right:10px}
+  .duo-panel{margin-top:11px!important;padding:15px!important;border-radius:22px!important}
+  .duo-panel-head{align-items:flex-start}
+  .duo-panel h3{font-size:17px!important}
+  .duo-badge{padding:6px 8px;font-size:11px}
+  .duo-livebar{padding:12px!important;border-radius:17px!important}
+  .duo-live-head span{max-width:54%}
+  .duo-answer-pill{padding:10px!important}
+  .duo-reveal-row{padding:10px!important}
+  .result{padding:19px 16px;border-radius:24px}
+  .result h2{font-size:26px}
+  .duo-result-hero{padding:17px;border-radius:19px}
+  .summary-item{padding:12px}
+  .history-row{grid-template-columns:40px minmax(0,1fr) auto;gap:10px;padding:12px}
+  .history-icon{width:40px;height:40px;border-radius:13px;font-size:20px}
+  .history-answers article{padding:12px}
+  .history-answers p{font-size:12px;line-height:1.6}
+  .round-restart-current{min-height:38px;padding:8px 12px}
+}
+
+@media(max-width:380px){
+  .app-shell{padding-left:11px;padding-right:11px}
+  .hero h1{font-size:31px}
+  .play-picker{padding:13px}
+  .play-picker-actions{gap:7px}
+  .play-picker-actions button{padding-left:8px;padding-right:8px;font-size:12px}
+  .quiz-card{grid-template-columns:48px minmax(0,1fr) auto;gap:11px;padding:15px}
+  .icon{width:48px;height:48px;border-radius:15px;font-size:23px}
+  .quiz-card h3{font-size:17px}
+  .card-meta span{padding:3px 7px}
+  .duo-actions{grid-template-columns:1fr!important}
+  .duo-actions .duo-primary{grid-column:auto!important}
+  .scale{gap:5px}
+  .scale button{border-radius:13px;font-size:14px}
+  .nav{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}
+}
+
+/* Short phone landscape: compress chrome, never the answer text itself. */
+@media(orientation:landscape) and (max-height:560px){
+  .app-shell{padding-top:calc(8px + env(safe-area-inset-top));padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  .hero{padding-top:5px}
+  .hero h1{font-size:28px;margin:5px 0 6px}
+  .hero p{font-size:13px;line-height:1.5}
+  .mini-row{margin-top:8px}
+  .play-picker{margin:9px 0 12px;padding:12px 14px;gap:9px}
+  .duo-panel{margin:8px 0 12px!important;padding:12px!important}
+  .topbar{margin-bottom:6px}
+  .progress-wrap{margin:6px auto 9px}
+  .question-card{padding:15px 18px;border-radius:22px}
+  .question-card h3{font-size:21px;margin:6px 0 12px}
+  .duo-livebar{margin-top:10px!important;padding:10px!important}
+  .duo-answer-pill{padding:8px 10px!important}
+  .nav{margin-top:7px;padding-top:7px;bottom:calc(4px + env(safe-area-inset-bottom))}
+  .result{padding:16px 18px}
+}
+
+@media(pointer:coarse){
+  .history-delete{min-height:44px;padding:12px 14px}
+  .privacy-note summary{min-height:38px;display:flex;align-items:center}
+}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+}
