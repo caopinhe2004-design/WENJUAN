@@ -55,7 +55,14 @@
     for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}
     return h>>>0;
   }
-  function seed(q,i,pair,tag=''){const round=typeof roundsCurrent==='function'?roundsCurrent(q):null;return `${duo.roomId||'local'}|${round?.id||round?.seq||''}|${q.id}|${i}|${JSON.stringify(pair?.lv)}|${JSON.stringify(pair?.rv)}|${tag}`}
+  function pairSeedValue(pair){
+    if(!pair)return'';
+    return [JSON.stringify(pair.lv),JSON.stringify(pair.rv)].sort().join('|');
+  }
+  function seed(q,i,pair,tag=''){
+    const round=typeof roundsCurrent==='function'?roundsCurrent(q):null;
+    return `${duo.roomId||'local'}|${round?.id||round?.seq||''}|${q.id}|${i}|${pairSeedValue(pair)}|${tag}`;
+  }
   function pick(list,key){return list?.length?list[hash32(key)%list.length]:''}
   function copyFor(q,pair,i){
     const own=COPY_BY_QUIZ[q.id]?.[pair.same?'same':'diff'];
