@@ -1,8 +1,8 @@
-// One-time migration for the rewritten 100-question banks.
-// Old current answers were index-based, so keeping them would attach old answers to new questions.
-// Completed round history is stored under a separate key and is intentionally preserved.
+// One-time migration for the rewritten 100-question banks and fixed four-part sessions.
+// Current answers are position-based, so old random-session answers cannot safely map to fixed 1-25 / 26-50 / 51-75 / 76-100 blocks.
+// Completed round history uses a separate key and is intentionally preserved.
 (function(){
-  const VERSION='3';
+  const VERSION='4';
   const KEY='coupleSleepQuiz.questionBankVersion';
   if(localStorage.getItem(KEY)===VERSION)return;
   state.answers={};
