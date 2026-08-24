@@ -46,7 +46,7 @@ function duoNavPayload(){
     quizId:duoNavWanted.quizId,
     index:duoNavWanted.index,
     clock:duoNavApplied.clock,
-    clientId:duo.clientId
+    clientId:duoNavApplied.clientId||''
   };
 }
 function duoNavFromSnapshot(snapshot){
@@ -59,7 +59,7 @@ function duoNavApplySnapshot(snapshot){
   if(!duo.acceptedIds.includes(snapshot.clientId)){duoNavPending=snapshot;return}
   const nav=duoNavFromSnapshot(snapshot);if(!nav)return;
   const version=duoNavVersion(nav);duoNavClock=Math.max(duoNavClock,version.clock);
-  if(!duoNavVersionNewer(version,duoNavApplied))return;
+  if(version.clock<=0||!duoNavVersionNewer(version,duoNavApplied))return;
   duoNavApplied=version;duoNavPending=null;
   const target=duoNavNormalize(nav.view,nav.quizId,nav.index);
   duoNavRemember(target.view,target.quizId,target.index);
