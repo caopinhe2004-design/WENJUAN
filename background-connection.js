@@ -10,12 +10,29 @@ function duoBackgroundClearTimer(){
   duoBackgroundTimer=null;
 }
 
+function duoBackgroundHardSuspend(){
+  duoBackgroundClearTimer();
+  if(duoBackgroundDisconnecting||duoBackgroundSuspended||!duo.active||!duo.mqtt)return;
+  duoBackgroundDisconnecting=true;
+  try{
+    duoRoomStoreSave();
+    clearTimeout(duo.sendTimer);clearTimeout(duo.seatTimer);clearInterval(duo.presenceTimer);
+    // Do not send MQTT DISCONNECT here. Closing the socket without DISCONNECT lets EMQX publish our retained offline Last Will.
+    if(typeof duo.mqtt.abort==='function')duo.mqtt.abort();else duo.mqtt.end();
+    duo.mqtt=null;duo.connected=false;duo.accepted=false;duo.full=false;
+    duo.claims.clear();duo.states.clear();duo.presence.clear();duo.acceptedIds=[];duo.revealKey=null;
+    duoBackgroundSuspended=true;
+  }catch{}
+  finally{duoBackgroundDisconnecting=false}
+}
+
 async function duoBackgroundSuspend(){
   duoBackgroundClearTimer();
   if(duoBackgroundDisconnecting||duoBackgroundSuspended||!duo.active||!duo.mqtt)return;
   duoBackgroundDisconnecting=true;
   try{
     duoRoomStoreSave();
+    // A normal long-background pause has enough time to publish offline cleanly.
     await duoDisconnect({clearRetained:false});
     duoBackgroundSuspended=true;
   }catch{}
@@ -46,10 +63,10 @@ document.addEventListener('visibilitychange',()=>{
   else duoBackgroundResume();
 });
 
-// pagehide usually means the page is being frozen, cached or unloaded. Disconnect immediately
-// because a suspended browser may never get to run the one-minute timer.
+// pagehide often means the page is being frozen or destroyed. Trigger the broker-side Last Will immediately
+// because browser shutdown is not guaranteed to flush a final WebSocket publish.
 window.addEventListener('pagehide',()=>{
-  if(duo.active)duoBackgroundSuspend();
+  if(duo.active)duoBackgroundHardSuspend();
 });
 window.addEventListener('pageshow',()=>{
   if(document.visibilityState==='visible')duoBackgroundResume();
