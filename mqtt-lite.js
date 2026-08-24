@@ -1,9 +1,10 @@
-// Minimal MQTT 3.1.1 client for browser WebSocket connections (QoS 0 publish, subscribe, retained messages).
+// Minimal MQTT 3.1.1 client for browser WebSocket connections (QoS 0 publish, subscribe, retained messages, last will).
 (function(global){
   const te=new TextEncoder(),td=new TextDecoder();
   const bytes=s=>te.encode(String(s));
   const u16=n=>new Uint8Array([(n>>8)&255,n&255]);
   const field=s=>{const b=bytes(s);const out=new Uint8Array(b.length+2);out.set(u16(b.length),0);out.set(b,2);return out};
+  const binaryField=value=>{const b=value instanceof Uint8Array?value:bytes(value??'');const out=new Uint8Array(b.length+2);out.set(u16(b.length),0);out.set(b,2);return out};
   const join=(...parts)=>{const len=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(len);let o=0;for(const p of parts){out.set(p,o);o+=p.length}return out};
   function remaining(n){const a=[];do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;a.push(d)}while(n>0);return new Uint8Array(a)}
   function packet(header,body){return join(new Uint8Array([header]),remaining(body.length),body)}
@@ -26,6 +27,12 @@
     send(data){if(this.ws&&this.ws.readyState===WebSocket.OPEN)this.ws.send(data)}
     sendConnect(){
       let flags=2;const payload=[field(this.opts.clientId||('web_'+crypto.randomUUID()))];
+      const will=this.opts.will;
+      if(will?.topic){
+        const qos=Math.max(0,Math.min(2,Number(will.qos)||0));
+        flags|=4|(qos<<3);if(will.retain)flags|=32;
+        payload.push(field(will.topic),binaryField(will.payload??''));
+      }
       if(this.opts.username!==undefined){flags|=128;payload.push(field(this.opts.username))}
       if(this.opts.password!==undefined){flags|=64;payload.push(field(this.opts.password))}
       const vh=join(field('MQTT'),new Uint8Array([4,flags]),u16(this.opts.keepalive||30));
@@ -48,6 +55,7 @@
     _subscribe(topic){const body=join(u16(this.nextId()),field(topic),new Uint8Array([0]));this.send(packet(0x82,body))}
     publish(topic,payload,{retain=false}={}){const data=payload instanceof Uint8Array?payload:bytes(payload);this.send(packet(0x30|(retain?1:0),join(field(topic),data)))}
     end(){this.closed=true;clearTimeout(this.reconnectTimer);clearInterval(this.pingTimer);try{this.send(new Uint8Array([0xe0,0x00]));this.ws&&this.ws.close()}catch{}}
+    abort(){this.closed=true;clearTimeout(this.reconnectTimer);clearInterval(this.pingTimer);try{this.ws&&this.ws.close()}catch{}}
   }
   global.TinyMQTT=TinyMQTT;
 })(window);
