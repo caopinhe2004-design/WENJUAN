@@ -6,6 +6,7 @@
   let roomSeen='';
   let roomRestored='';
   let lastLocalConnected=false;
+  let hasConnectedOnce=false;
   let followUntil=0;
   let followTimer=null;
   let following=false;
@@ -113,7 +114,11 @@
 
   function restoreLocalOnce(){
     if(!duo.active||!duo.roomId)return;
-    if(roomSeen!==duo.roomId){roomSeen=duo.roomId;roomRestored='';lastSaved=''}
+    if(roomSeen!==duo.roomId){
+      roomSeen=duo.roomId;roomRestored='';lastSaved='';
+      lastLocalConnected=false;hasConnectedOnce=false;followUntil=0;
+      clearTimeout(followTimer);followTimer=null;
+    }
     if(roomRestored===duo.roomId)return;
     roomRestored=duo.roomId;
     if(route.view!=='home')return;
@@ -122,8 +127,16 @@
   }
 
   function markLocalReconnect(){
+    if(!hasConnectedOnce)return;
     followUntil=Date.now()+FOLLOW_MS;
     scheduleFollow(120);
+  }
+  function noteConnection(connected){
+    if(connected&&!lastLocalConnected){
+      if(hasConnectedOnce)markLocalReconnect();
+      else hasConnectedOnce=true;
+    }
+    lastLocalConnected=connected;
   }
 
   const baseRefresh=duoRefreshUI;
@@ -131,18 +144,17 @@
     const out=baseRefresh();
     restoreLocalOnce();
     const connected=!!(duo.active&&duo.connected&&duo.mqtt?.connected);
-    if(connected&&!lastLocalConnected)markLocalReconnect();
-    lastLocalConnected=connected;
+    noteConnection(connected);
     saveCurrent();
     return out;
   };
 
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='hidden')saveCurrent();
-    else if(duo.active){markLocalReconnect();restoreLocalOnce()}
+    else if(duo.active&&hasConnectedOnce){markLocalReconnect();restoreLocalOnce()}
   });
   window.addEventListener('pagehide',saveCurrent);
-  window.addEventListener('pageshow',()=>{if(duo.active){markLocalReconnect();restoreLocalOnce()}});
+  window.addEventListener('pageshow',()=>{if(duo.active&&hasConnectedOnce){markLocalReconnect();restoreLocalOnce()}});
 
   window.addEventListener('couplequiz:partner-returned',()=>{
     // Only a locally reconnecting device follows. The device that stayed online merely shows the return toast.
@@ -153,8 +165,7 @@
     if(!duo.active)return;
     restoreLocalOnce();
     const connected=!!(duo.connected&&duo.mqtt?.connected);
-    if(connected&&!lastLocalConnected)markLocalReconnect();
-    lastLocalConnected=connected;
+    noteConnection(connected);
     if(Date.now()<followUntil)forceFollowRemote();
   },500);
 })();
