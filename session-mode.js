@@ -1,13 +1,11 @@
-// Fixed four-part session layer for the 100-question banks.
-// Each quiz is played in ordered blocks: 1-25, 26-50, 51-75, 76-100.
+// Fixed 25-question session layer.
+// The 100-question games use 4 ordered rounds; the 200-question food game uses 8.
 // The selected block is synchronized in the existing encrypted room snapshot.
 (function(){
-  const PARTS=[
-    {part:1,start:0,end:25,label:'第 1 轮',range:'1–25'},
-    {part:2,start:25,end:50,label:'第 2 轮',range:'26–50'},
-    {part:3,start:50,end:75,label:'第 3 轮',range:'51–75'},
-    {part:4,start:75,end:100,label:'第 4 轮',range:'76–100'}
-  ];
+  const ALL_PARTS=Array.from({length:8},(_,i)=>({
+    part:i+1,start:i*25,end:(i+1)*25,label:`第 ${i+1} 轮`,range:`${i*25+1}–${(i+1)*25}`
+  }));
+  const FOOD_PART_NAMES=['肉禽蛋和内脏','鱼类','虾蟹贝类和水产','常见蔬菜','根茎菌菇和葱蒜','豆制品主食和腌菜','水果','水果和家常菜'];
   let sessionDraft=null;
   const remotePending=new Map();
 
@@ -15,20 +13,25 @@
 
   function sessionMap(){if(!state.sessions||typeof state.sessions!=='object')state.sessions={};return state.sessions}
   function pendingMap(){if(!state.sessionPending||typeof state.sessionPending!=='object')state.sessionPending={};return state.sessionPending}
-  function partMeta(part){return PARTS.find(x=>x.part===Number(part))||null}
+  function partsFor(q){
+    const total=q?.bankQuestions?.length||q?.questions?.length||0;
+    return ALL_PARTS.filter(x=>x.end<=total);
+  }
+  function partMeta(q,part){return partsFor(q).find(x=>x.part===Number(part))||null}
+  function partName(q,part){return q?.id==='food'?FOOD_PART_NAMES[Number(part)-1]||'':''}
   function makeConfig(q,part){
-    const meta=partMeta(part);if(!meta)return null;
+    const meta=partMeta(q,part);if(!meta)return null;
     const indices=Array.from({length:25},(_,i)=>meta.start+i);
     return {v:2,quizId:q.id,mode:'quarter',part:meta.part,count:25,indices,roundId:'',createdAt:Date.now()};
   }
   function validConfig(q,cfg){
-    const meta=partMeta(cfg?.part);
+    const meta=partMeta(q,cfg?.part);
     if(!q||!meta||cfg?.mode!=='quarter'||!Array.isArray(cfg.indices)||cfg.indices.length!==25)return false;
     return cfg.indices.every((v,i)=>v===meta.start+i&&v>=0&&v<q.bankQuestions.length);
   }
   function applyConfig(q,cfg){
     if(!validConfig(q,cfg))return false;
-    const meta=partMeta(cfg.part);
+    const meta=partMeta(q,cfg.part);
     q.questions=cfg.indices.map(i=>q.bankQuestions[i]);
     q.sessionMode='quarter';q.sessionPart=meta.part;q.sessionCount=25;
     q.sessionStart=meta.start;q.sessionEnd=meta.end;
@@ -40,7 +43,8 @@
   }
   function clearAllAnswers(q){
     if(!state.ready||typeof state.ready!=='object')state.ready={};
-    for(let i=0;i<100;i++){
+    const total=q?.bankQuestions?.length||q?.questions?.length||100;
+    for(let i=0;i<total;i++){
       const k=key(q.id,i);delete state.answers[k];delete state.rank[k];delete state.ready[k];
     }
   }
@@ -51,16 +55,18 @@
 
   function currentConfig(q){return sessionMap()[q.id]||null}
   function firstUnfinishedFor(q){return typeof roundsFirstUnfinished==='function'?roundsFirstUnfinished(q):firstUnanswered(q)}
-  function partText(cfg){const m=partMeta(cfg?.part);return m?`${m.label} · ${m.range} 题`:'25 题'}
+  function partText(q,cfg){const m=partMeta(q,cfg?.part);return m?`${m.label} · ${m.range} 题`:'25 题'}
   function publishSession(){
     save();
     if(duo.active&&duo.accepted)duoPublishState().catch(()=>{});
   }
 
-  function chooser(q,{title='选今晚这一轮',message='100 题固定分成四轮，每轮 25 题，题号按顺序来。'}={},onPick){
+  function chooser(q,{title='选今晚这一轮',message=''}={},onPick){
     document.querySelector('.session-mode-backdrop')?.remove();
     const wrap=document.createElement('div');wrap.className='duo-modal-backdrop session-mode-backdrop';
-    wrap.innerHTML=`<div class="duo-modal session-mode-modal"><span class="session-kicker">${esc(q.icon)} ${esc(q.title)}</span><h2>${esc(title)}</h2><p>${esc(message)}</p><div class="session-choice-list">${PARTS.map(x=>`<button data-part="${x.part}"><b>${x.label}</b><span>第 ${x.range} 题 · 25 题</span></button>`).join('')}</div><button class="session-cancel" data-cancel>算了</button></div>`;
+    const parts=partsFor(q),total=q.bankQuestions.length;
+    const copy=message||`${total} 题固定分成 ${parts.length} 轮，每轮 25 题，按题号顺着来。`;
+    wrap.innerHTML=`<div class="duo-modal session-mode-modal"><span class="session-kicker">${esc(q.icon)} ${esc(q.title)}</span><h2>${esc(title)}</h2><p>${esc(copy)}</p><div class="session-choice-list">${parts.map(x=>`<button data-part="${x.part}"><b>${x.label}${partName(q,x.part)?` · ${esc(partName(q,x.part))}`:''}</b><span>第 ${x.range} 题 · 25 题</span></button>`).join('')}</div><button class="session-cancel" data-cancel>算了</button></div>`;
     document.body.appendChild(wrap);
     wrap.querySelectorAll('[data-part]').forEach(b=>b.onclick=()=>{const part=Number(b.dataset.part);wrap.remove();onPick?.(part)});
     wrap.querySelector('[data-cancel]').onclick=()=>wrap.remove();
@@ -74,7 +80,7 @@
     const meta=roundsEnsureCurrent(q);cfg.roundId=meta.id;
     publishSession();
     openQuiz(q.id,0);
-    showToast(partText(cfg));
+    showToast(partText(q,cfg));
   }
   function openOrChoose(q){
     const cfg=currentConfig(q);
@@ -153,9 +159,10 @@
     if(action?.sessionCfg&&action.nextRoundId)remotePending.set(action.nextRoundId,action.sessionCfg);
     const out=baseShowRequest(action);
     if(action?.sessionCfg){
+      const q=quiz(action.quizId);
       const modal=document.querySelector(`.round-request-modal[data-request-id="${action.id}"]`);
       const p=modal?.querySelector('p');
-      if(p)p.insertAdjacentHTML('beforeend',`<br><b>${esc(partText(action.sessionCfg))}</b>`);
+      if(p&&q)p.insertAdjacentHTML('beforeend',`<br><b>${esc(partText(q,action.sessionCfg))}</b>`);
     }
     return out;
   };
@@ -169,7 +176,7 @@
         roundsPublishAction();
         const modal=document.querySelector(`.round-request-modal[data-request-id="${roundsAction.id}"]`);
         const p=modal?.querySelector('p');
-        if(p&&!p.dataset.sessionAdded){p.dataset.sessionAdded='1';p.insertAdjacentHTML('beforeend',`<br><b>${esc(partText(cfg))}</b>`)}
+        if(p&&!p.dataset.sessionAdded){p.dataset.sessionAdded='1';p.insertAdjacentHTML('beforeend',`<br><b>${esc(partText(q,cfg))}</b>`)}
       }
       return out;
     }finally{sessionDraft=null}
@@ -183,13 +190,13 @@
 
   function decorateHome(){
     if(route.view!=='home')return;
-    const pills=app.querySelectorAll('.mini-row .pill');if(pills[0])pills[0].textContent='12 套 · 每套 4 轮';
-    const heroP=app.querySelector('.hero p');if(heroP)heroP.textContent='每套 100 题，固定分成四轮。每轮 25 题，按 1–25、26–50、51–75、76–100 顺着玩。';
+    const pills=app.querySelectorAll('.mini-row .pill');if(pills[0])pills[0].textContent=`${QUIZZES.length} 套 · 每轮 25 题`;
+    const heroP=app.querySelector('.hero p');if(heroP)heroP.textContent='普通问卷每套 100 题，饮食偏好 200 题。都按每轮 25 题顺着玩。';
     app.querySelectorAll('.quiz-card-wrap').forEach(wrap=>{
       const btn=wrap.querySelector('[data-open]'),q=btn&&quiz(btn.dataset.open);if(!q)return;
       const cfg=currentConfig(q);if(cfg)applyConfig(q,cfg);
       const meta=btn.querySelectorAll('.card-meta span');
-      if(meta[1])meta[1].textContent=cfg?partText(cfg):'4 轮 · 每轮 25 题';
+      if(meta[1])meta[1].textContent=cfg?partText(q,cfg):`${partsFor(q).length} 轮 · 每轮 25 题`;
       btn.onclick=()=>openOrChoose(q);
     });
   }
@@ -210,7 +217,7 @@
   try{
     if(sessionStorage.getItem('coupleSleepQuiz.bankUpgradeNotice')){
       sessionStorage.removeItem('coupleSleepQuiz.bankUpgradeNotice');
-      setTimeout(()=>showToast('现在固定分四轮，每轮 25 题'),500);
+      setTimeout(()=>showToast('现在每轮固定 25 题'),500);
     }
   }catch{}
 })();
