@@ -128,5 +128,6 @@
   const baseQuizResult=quizResult;
   quizResult=function(q){const out=baseQuizResult(q);neutralResult();return out};
 
-  decorateChoice();stripMatchFeedback();neutralResult();
+  if(route.view==='home')home();
+  else{decorateChoice();stripMatchFeedback();neutralResult()}
 })();
