@@ -22,7 +22,7 @@
   function makeConfig(q,mode){
     const count=countFor(q,mode),seed=crypto.randomUUID();
     const indices=mode==='all'?Array.from({length:q.bankQuestions.length},(_,i)=>i):shuffledIndices(q.bankQuestions.length,`${q.id}|${seed}`).slice(0,count);
-    return {v:1,mode,count:indices.length,seed,indices,roundId:'',createdAt:Date.now()};
+    return {v:1,quizId:q.id,mode,count:indices.length,seed,indices,roundId:'',createdAt:Date.now()};
   }
   function validConfig(q,cfg){
     return !!(q&&cfg&&Array.isArray(cfg.indices)&&cfg.indices.length>0&&cfg.indices.every(i=>Number.isInteger(i)&&i>=0&&i<q.bankQuestions.length));
@@ -47,7 +47,6 @@
   restoreConfigs();
 
   // Clearing a round must clear all 100 index slots, not only the current sampled subset.
-  const baseClearQuiz=roundsClearQuiz;
   roundsClearQuiz=function(q){clearAllAnswers(q)};
 
   function publishSession(){
@@ -55,7 +54,6 @@
     if(duo.active&&duo.accepted)duoPublishState().catch(()=>{});
   }
   function currentConfig(q){return sessionMap()[q.id]||null}
-  function modeText(q,cfg){return `${MODE_LABEL[cfg?.mode]||'本轮'} · ${cfg?.indices?.length||q.questions.length} 题`}
   function firstUnfinishedFor(q){return typeof roundsFirstUnfinished==='function'?roundsFirstUnfinished(q):firstUnanswered(q)}
 
   function chooser(q,{title='今晚玩多少？',message='100 题都在题库里。这一轮选一个舒服的长度。'}={},onPick){
@@ -141,6 +139,7 @@
     const localPending=pendingMap()[q.id];
     if(localPending&&(!localPending.roundId||localPending.roundId===meta.id))cfg=localPending;
     if(!cfg&&remotePending.has(meta.id))cfg=remotePending.get(meta.id);
+    if(!cfg&&sessionDraft?.quizId===q.id)cfg=sessionDraft;
     if(mode==='restart'&&!cfg)cfg=currentConfig(q);
     if(cfg){
       cfg={...cfg,indices:[...cfg.indices],roundId:meta.id};
@@ -215,7 +214,7 @@
   const baseRefresh=duoRefreshUI;
   duoRefreshUI=function(){const out=baseRefresh();if(route.view==='home')decorateHome();return out};
 
-  decorateHome();
+  if(route.view==='home')home();else decorateHome();
   try{
     if(sessionStorage.getItem('coupleSleepQuiz.bankUpgradeNotice')){
       sessionStorage.removeItem('coupleSleepQuiz.bankUpgradeNotice');
