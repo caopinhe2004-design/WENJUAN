@@ -47,13 +47,13 @@
   }catch{}
 
   // session-mode owns the chooser text inside a closure; keep the displayed category name current.
-  function fixCategoryLabel(root=document){
-    root.querySelectorAll?.('.session-mode-modal b,.session-mode-modal h2').forEach(el=>{
+  function fixCategoryLabel(root){
+    root?.querySelectorAll?.('.session-mode-modal b,.session-mode-modal h2').forEach(el=>{
       if(el.textContent.includes('水果和家常菜'))el.textContent=el.textContent.replace('水果和家常菜','水果和特殊口味');
     });
   }
-  if(document.body){
-    fixCategoryLabel();
-    new MutationObserver(()=>fixCategoryLabel()).observe(document.body,{childList:true,subtree:true});
+  if(typeof document!=='undefined'&&document.body){
+    fixCategoryLabel(document);
+    if(typeof MutationObserver!=='undefined')new MutationObserver(()=>fixCategoryLabel(document)).observe(document.body,{childList:true,subtree:true});
   }
 })();
