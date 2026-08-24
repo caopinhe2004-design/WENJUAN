@@ -20,8 +20,13 @@ const POLISH_POOLS={
 };
 function polishPartner(){const n=typeof duoRemoteNickname==='function'?duoRemoteNickname():'TA';return !n||n==='对方'?'TA':n}
 function polishPick(ids){const choices=ids.map(quiz).filter(Boolean);if(!choices.length)return;openQuiz(choices[Math.floor(Math.random()*choices.length)].id,0)}
+
+// Synchronized play makes per-card partner progress redundant. Keep the home grid clean.
+duoRefreshHomeCards=function(){app.querySelectorAll('.duo-card-progress').forEach(el=>el.remove())};
+
 function polishMetaCards(){
   app.querySelectorAll('.quiz-card-wrap').forEach(wrap=>{
+    wrap.querySelector('.duo-card-progress')?.remove();
     const btn=wrap.querySelector('[data-open]'),q=btn&&quiz(btn.dataset.open);if(!q)return;
     const meta=POLISH_META[q.id];if(!meta)return;
     btn.querySelector('.card-meta')?.remove();
