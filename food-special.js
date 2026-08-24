@@ -29,19 +29,17 @@
     ['茴香','饺子里包着茴香馅，那股很有存在感的香气你吃得惯吗？'],
     ['生姜','菜里能明显吃到生姜片时，你会觉得提味还是更想挑出来？'],
     ['咖喱','咖喱汁浓浓地拌进米饭里，这种香料味对你来说很开胃吗？'],
-    ['臭鳜鱼','一盘闻着特别、吃起来很鲜的臭鳜鱼端上桌，你会愿意下筷子吗？'],
+    ['辣条','拆开一包辣条，那股又辣又香的味道你会忍不住吃几根吗？'],
     ['奶酪','披萨或焗饭里奶酪味很浓时，这股厚厚的奶香你喜欢吗？'],
-    ['龟苓膏','冰冰凉凉的龟苓膏带着一点苦味，你会喜欢这种甜品吗？'],
+    ['辣椒油','面或凉菜里淋上一勺辣椒油，明显的辣香你会觉得更好吃吗？'],
     ['豆豉','菜里放了不少豆豉，咸香发酵的味道很明显，你吃得惯吗？']
   ].map(([name,scene])=>[name,[...options],scene]);
 
   if(fruits.length!==25||special.length!==25)throw new Error('food rounds 7-8 must be 25 fruit + 25 special foods');
   q.questions=[...q.questions.slice(0,150),...fruits,...special];
 
-  // The last two rounds changed shape. Clear only an unfinished active round 7/8 once,
-  // so an old answer can never be displayed against a different question. Archived history stays intact.
   try{
-    const MIGRATION='coupleSleepQuiz.foodTail.v3';
+    const MIGRATION='coupleSleepQuiz.foodTail.v4';
     if(!localStorage.getItem(MIGRATION)){
       const part=Number(state?.sessions?.food?.part||0);
       if(part===7||part===8){
