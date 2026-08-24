@@ -1,4 +1,4 @@
-// Keep one full round of familiar fruit and one full round of distinctive tastes/textures.
+// Keep one full round of familiar fruit and one full round of concrete distinctive foods/textures.
 (function(){
   const q=typeof quiz==='function'?quiz('food'):null;
   if(!q||!Array.isArray(q.questions)||q.questions.length!==200)return;
@@ -22,26 +22,26 @@
     ['酸笋','粉面里带着酸笋那股鲜明的酸香，你会觉得很加分吗？'],
     ['泡椒','菜里有明显的泡椒酸辣味，你会越吃越香还是想避开一点？'],
     ['芥末','寿司或凉菜旁边有一点冲鼻的芥末，你会主动蘸着吃吗？'],
-    ['花椒麻味','一口下去舌尖麻麻的花椒味很明显，这种感觉你喜欢吗？'],
+    ['花椒','菜里花椒放得比较多，吃起来麻麻的，你会觉得很香吗？'],
     ['芝麻酱','火锅蘸料里来一大勺浓浓的芝麻酱，这一口对你有吸引力吗？'],
     ['酒酿','甜汤里盛着软软的酒酿米粒，这种微甜带酒香的味道你喜欢吗？'],
     ['羊杂','天气冷时来一碗热乎乎的羊杂汤，这股味道你会想喝吗？'],
     ['茴香','饺子里包着茴香馅，那股很有存在感的香气你吃得惯吗？'],
-    ['姜味','菜里能明显吃出生姜的辛香时，你会觉得提味还是想挑出来？'],
+    ['生姜','菜里能明显吃到生姜片时，你会觉得提味还是更想挑出来？'],
     ['咖喱','咖喱汁浓浓地拌进米饭里，这种香料味对你来说很开胃吗？'],
-    ['椰子味','甜品或饮料里有明显的椰子香，你会觉得清甜还是有点腻？'],
+    ['臭鳜鱼','一盘闻着特别、吃起来很鲜的臭鳜鱼端上桌，你会愿意下筷子吗？'],
     ['奶酪','披萨或焗饭里奶酪味很浓时，这股厚厚的奶香你喜欢吗？'],
-    ['薄荷味','糖果、饮料或甜品里有清凉的薄荷味，你会觉得很舒服吗？'],
-    ['孜然味','烧烤上撒了很多孜然，香料味很明显时你会更喜欢吗？']
+    ['龟苓膏','冰冰凉凉的龟苓膏带着一点苦味，你会喜欢这种甜品吗？'],
+    ['豆豉','菜里放了不少豆豉，咸香发酵的味道很明显，你吃得惯吗？']
   ].map(([name,scene])=>[name,[...options],scene]);
 
-  if(fruits.length!==25||special.length!==25)throw new Error('food rounds 7-8 must be 25 fruit + 25 special tastes');
+  if(fruits.length!==25||special.length!==25)throw new Error('food rounds 7-8 must be 25 fruit + 25 special foods');
   q.questions=[...q.questions.slice(0,150),...fruits,...special];
 
   // The last two rounds changed shape. Clear only an unfinished active round 7/8 once,
   // so an old answer can never be displayed against a different question. Archived history stays intact.
   try{
-    const MIGRATION='coupleSleepQuiz.foodTail.v2';
+    const MIGRATION='coupleSleepQuiz.foodTail.v3';
     if(!localStorage.getItem(MIGRATION)){
       const part=Number(state?.sessions?.food?.part||0);
       if(part===7||part===8){
