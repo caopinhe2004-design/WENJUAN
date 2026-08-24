@@ -32,14 +32,19 @@ async function duoNavPublish(view,quizId=null,index=0){
   duoNavClock=Math.max(duoNavClock,duoNavApplied.clock)+1;
   const version={clock:duoNavClock,clientId:duo.clientId};
   duoNavApplied=version;
-  if(!duo.active||!duo.accepted)return;
-  if(!duo.mqtt?.connected){duoNavDirty=true;return}
+  if(!duo.active)return;
+  if(!duo.accepted||!duo.mqtt?.connected){duoNavDirty=true;return}
   duoNavDirty=false;
   await duoPublish('nav',{
     v:2,kind:'nav',clientId:duo.clientId,
     view:duoNavWanted.view,quizId:duoNavWanted.quizId,index:duoNavWanted.index,
     clock:version.clock,eventId:crypto.randomUUID()
   },true);
+}
+function duoNavFlushDirty(){
+  if(duoNavDirty&&duo.active&&duo.accepted&&duo.mqtt?.connected){
+    duoNavPublish(duoNavWanted.view,duoNavWanted.quizId,duoNavWanted.index).catch(()=>{});
+  }
 }
 function duoNavApply(msg){
   if(!msg||msg.clientId===duo.clientId||!duo.active||!duo.accepted)return;
@@ -73,7 +78,7 @@ function duoNavTryPending(){
   if(duo.acceptedIds.includes(duoNavPending.clientId))duoNavApply(duoNavPending);
 }
 function duoNavCurrentAnswerState(){
-  if(!duo.active||!duo.accepted||route.view!=='quiz')return null;
+  if(!duo.active||route.view!=='quiz')return null;
   const q=quiz(route.quizId);if(!q)return null;
   const k=duoQuestionKey(q.id,route.index),remote=duoRemoteState();
   return {
@@ -102,7 +107,7 @@ function duoNavGateQuestion(){
 
   next.disabled=!both;
   if(!s.localDone)next.textContent='先答这一题';
-  else if(!s.remote)next.textContent=`等 ${partner} 来`;
+  else if(!duo.accepted||!s.remote)next.textContent=`等 ${partner} 来`;
   else if(!s.remoteDone)next.textContent=`等 ${partner} 答完`;
   else next.textContent=route.index===s.q.questions.length-1?'一起看结果':'下一题';
   next.onclick=()=>{
@@ -123,7 +128,7 @@ duoDecorateQuestion=function(){
   const localV=state.answers?.[k],remoteV=remote?.answers?.[k];
   const localHas=duoHasAnswer(localV),remoteHas=duoHasAnswer(remoteV);
   const localDone=duoNavQuestionDone(q,k,state.answers,state.ready),remoteDone=duoNavQuestionDone(q,k,remote?.answers,remote?.ready);
-  let where='';if(remote?.currentQuiz){const rq=quiz(remote.currentQuiz);where=rq?`${partner} 在第 ${(remote.index||0)+1} 题`:''}
+  let where='';if(remote?.currentQuiz){where=`${partner} 在第 ${(remote.index||0)+1} 题`}
   const localText=localDone?'✓ 答好了':q.type==='text'&&localHas?'… 还在写':'○ 还没答';
   const remoteText=remoteDone?'✓ 答好了':q.type==='text'&&remoteHas?'… 还在写':duoPartnerOnline()?'○ 还没答':'○ 离线';
   const bar=document.createElement('div');bar.className='duo-livebar';
@@ -174,16 +179,14 @@ duoHandleMessage=function(topic,payload){
 };
 
 const duoNavBaseRefreshUI=duoRefreshUI;
-duoRefreshUI=function(){duoNavBaseRefreshUI();duoNavTryPending();duoNavGateQuestion()};
+duoRefreshUI=function(){duoNavBaseRefreshUI();duoNavTryPending();duoNavFlushDirty();duoNavGateQuestion()};
 
 const duoNavBaseConnect=duoConnect;
 duoConnect=function(){
   duoNavBaseConnect();
   if(!duo.mqtt)return;
   duo.mqtt.subscribe(`${duo.topicBase}/nav`);
-  duo.mqtt.on('connect',()=>{
-    if(duoNavDirty)setTimeout(()=>duoNavPublish(duoNavWanted.view,duoNavWanted.quizId,duoNavWanted.index).catch(()=>{}),350);
-  });
+  duo.mqtt.on('connect',()=>setTimeout(()=>duoNavFlushDirty(),350));
 };
 
 const duoNavBaseActivate=duoActivate;
@@ -214,19 +217,19 @@ openQuiz=function(id,index=0){
   const target=duoNavNormalize('quiz',id,index);
   const changed=route.view!=='quiz'||route.quizId!==target.quizId||route.index!==target.index;
   duoNavBaseOpenQuiz(target.quizId,target.index);
-  if(duo.active&&duo.accepted&&!duoNavApplying&&changed)duoNavPublish('quiz',target.quizId,target.index).catch(()=>{});
+  if(duo.active&&!duoNavApplying&&changed)duoNavPublish('quiz',target.quizId,target.index).catch(()=>{});
 };
 
 const duoNavBaseQuizResult=quizResult;
 quizResult=function(q){
   const changed=route.view!=='result'||route.quizId!==q.id;
   duoNavBaseQuizResult(q);
-  if(duo.active&&duo.accepted&&!duoNavApplying&&changed)duoNavPublish('result',q.id,q.questions.length-1).catch(()=>{});
+  if(duo.active&&!duoNavApplying&&changed)duoNavPublish('result',q.id,q.questions.length-1).catch(()=>{});
 };
 
 const duoNavBaseHome=home;
 home=function(){
   const changed=route.view!=='home';
   duoNavBaseHome();
-  if(duo.active&&duo.accepted&&!duoNavApplying&&changed)duoNavPublish('home').catch(()=>{});
+  if(duo.active&&!duoNavApplying&&changed)duoNavPublish('home').catch(()=>{});
 };
