@@ -1,0 +1,11 @@
+/* Playful reveal feedback: intentionally small and secondary to the actual answers. */
+.playful-feedback{margin-top:3px;padding:11px 12px;border-radius:14px;background:linear-gradient(135deg,rgba(250,241,237,.92),rgba(245,241,249,.88));border:1px solid rgba(218,202,202,.62)}
+.playful-feedback p{margin:0;color:#756660;font-size:12px;line-height:1.55}
+.playful-streak{display:inline-flex;align-items:center;min-height:25px;margin-bottom:7px;padding:4px 9px;border-radius:999px;background:#f3dfdb;color:#9a625d;font-size:11px;font-weight:850;letter-spacing:.01em}
+.playful-streak.break{background:#f0ece8;color:#82756e}
+.playful-followup{margin-top:9px;padding:10px 11px;border-radius:14px;border:1px dashed #d9cec8;background:rgba(255,255,255,.66)}
+.playful-followup button{min-height:38px;padding:7px 10px;border:0;border-radius:11px;background:#f0e9e5;color:#71645e;font:inherit;font-size:12px;font-weight:800;cursor:pointer;touch-action:manipulation}
+.playful-followup p{margin:9px 2px 1px;color:#5f544f;font-size:13px;line-height:1.65;overflow-wrap:anywhere}
+.playful-followup p[hidden]{display:none}
+@media(max-width:560px){.playful-feedback{padding:10px 11px}.playful-followup{padding:9px 10px}.playful-followup button{min-height:40px}.playful-followup p{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.playful-followup button{transition:none!important}}
