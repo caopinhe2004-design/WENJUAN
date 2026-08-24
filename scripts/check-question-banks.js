@@ -59,12 +59,21 @@ for(const [id,spec] of Object.entries(specs)){
       if(/[【】]/u.test(`${item[0]}${scene||''}`)){console.error(`food #${n}: bracket task label found`);bad=true}
       if(JSON.stringify(item[1])!==JSON.stringify(['爱吃','能吃','不吃'])){console.error(`food #${n}: options must be 爱吃/能吃/不吃`);bad=true}
     });
-    for(const name of ['娃娃菜','海带','雪菜','彩椒','紫甘蓝']){
+    for(const name of ['娃娃菜','海带','雪菜','彩椒','紫甘蓝','山楂']){
       if(names.filter(x=>x===name).length!==1){console.error(`food: expected exactly one ${name}`);bad=true}
     }
-    const special=['皮蛋','臭豆腐','香椿','腐乳','鱼腥草／折耳根','猪脑','鸡胗','鸭肠','黄喉','蚕蛹','皮冻','酸笋','泡椒','芥末','花椒麻味','芝麻酱','酒酿','羊杂','茴香','姜味'];
-    const tail=names.slice(180);
-    if(JSON.stringify(tail)!==JSON.stringify(special)){console.error('food: final 20 questions must be the special-taste set');bad=true}
+
+    const removedFruit=['李子','龙眼','桑葚','百香果','菠萝蜜'];
+    const fruitRound=names.slice(150,175);
+    if(fruitRound.length!==25){console.error('food: fruit round must contain 25 items');bad=true}
+    for(const name of removedFruit){
+      if(names.includes(name)){console.error(`food: removed less-common fruit still present: ${name}`);bad=true}
+    }
+
+    const special=['皮蛋','臭豆腐','香椿','腐乳','鱼腥草／折耳根','猪脑','鸡胗','鸭肠','黄喉','蚕蛹','皮冻','酸笋','泡椒','芥末','花椒麻味','芝麻酱','酒酿','羊杂','茴香','姜味','咖喱','椰子味','奶酪','薄荷味','孜然味'];
+    const specialRound=names.slice(175,200);
+    if(JSON.stringify(specialRound)!==JSON.stringify(special)){console.error('food: final 25 questions must be the special-taste round');bad=true}
+
     for(const old of ['番茄炒蛋','红烧肉','糖醋排骨','宫保鸡丁','鱼香肉丝','青椒肉丝','地三鲜','麻婆豆腐','回锅肉','水煮肉片','酸菜鱼','土豆炖牛肉','小鸡炖蘑菇','可乐鸡翅','葱爆羊肉','粉蒸肉','辣子鸡','红烧茄子','皮蛋豆腐','麻辣香锅']){
       if(names.includes(old)){console.error(`food: old low-disagreement dish still present: ${old}`);bad=true}
     }
