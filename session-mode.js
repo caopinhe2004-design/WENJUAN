@@ -72,6 +72,27 @@
     wrap.querySelector('[data-cancel]').onclick=()=>wrap.remove();
   }
 
+  function resumeChooser(q,cfg){
+    document.querySelector('.session-resume-backdrop')?.remove();
+    applyConfig(q,cfg);
+    const progress=roundsProgressCount(q),finished=progress===q.questions.length;
+    const meta=partMeta(q,cfg.part),name=partName(q,cfg.part);
+    const wrap=document.createElement('div');wrap.className='duo-modal-backdrop session-resume-backdrop';
+    const status=finished?'这一轮已经答完了。':`这一轮做到 ${progress}/25。`;
+    wrap.innerHTML=`<div class="duo-modal session-mode-modal"><span class="session-kicker">${esc(q.icon)} ${esc(q.title)}</span><h2>${esc(meta?.label||'上次这一轮')}${name?` · ${esc(name)}`:''}</h2><p>${esc(status)}你可以接着上次，也可以重新挑一轮。</p><div class="duo-modal-actions"><button data-reselect>重新选一轮</button><button class="primary" data-resume>${finished?'看上次结果':'接着上次'}</button></div><button class="session-cancel" data-cancel>算了</button></div>`;
+    document.body.appendChild(wrap);
+    wrap.querySelector('[data-cancel]').onclick=()=>wrap.remove();
+    wrap.querySelector('[data-resume]').onclick=()=>{
+      wrap.remove();applyConfig(q,cfg);
+      if(finished){quizResult(q);return}
+      roundsEnsureCurrent(q);openQuiz(q.id,firstUnfinishedFor(q));
+    };
+    wrap.querySelector('[data-reselect]').onclick=()=>{
+      wrap.remove();
+      chooser(q,{title:'重新选哪一轮？',message:'换一轮会放下当前未完成的进度；已经完成并保存的历史不会受影响。'},part=>switchToPart(q,part));
+    };
+  }
+
   function startFirstSession(q,part){
     const cfg=makeConfig(q,part);if(!cfg)return;
     clearAllAnswers(q);
@@ -84,12 +105,7 @@
   }
   function openOrChoose(q){
     const cfg=currentConfig(q);
-    if(cfg&&validConfig(q,cfg)){
-      applyConfig(q,cfg);
-      const n=roundsProgressCount(q);
-      if(n===q.questions.length){quizResult(q);return}
-      roundsEnsureCurrent(q);openQuiz(q.id,firstUnfinishedFor(q));return;
-    }
+    if(cfg&&validConfig(q,cfg)){resumeChooser(q,cfg);return}
     chooser(q,{},part=>startFirstSession(q,part));
   }
 
@@ -180,6 +196,15 @@
       }
       return out;
     }finally{sessionDraft=null}
+  }
+  function switchToPart(q,part){
+    const cfg=makeConfig(q,part);if(!cfg)return;
+    if(!duo.active){
+      sessionDraft=cfg;
+      try{roundsBeginNew(q,roundsNewMeta(q,'restart'),'restart')}finally{sessionDraft=null}
+      return;
+    }
+    requestWithConfig(q,'restart',cfg);
   }
   roundsRequestNew=function(q,mode='new'){
     if(mode!=='new')return baseRequestNew(q,mode);
