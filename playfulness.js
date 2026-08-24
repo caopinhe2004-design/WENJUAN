@@ -1,6 +1,7 @@
 // Playfulness layer: streaks, reveal reactions and optional follow-up prompts.
 // It reads existing duo/round state only and never changes answers, navigation, history or MQTT payloads.
 (function(){
+  const OPEN_FOLLOWUPS=new Set();
   const SAME_GENERIC=[
     '这题不用商量了',
     '第一反应居然撞上了',
@@ -24,6 +25,12 @@
     guess:{same:['这题还真让你们撞上了','这一下有点会猜'],diff:['这题的答案有点意外','看来还有一点没猜透']},
     either:{same:['第一反应完全一样','这题不用抢遥控器了'],diff:['这一题开始分叉','好，各站一边']},
     heartbeat:{same:['心动刻度刚好一样','这一格同步得很准'],diff:['心动点一样，程度不太一样','同一件事，戳中的力度不同']}
+  };
+  const OPEN_COPY={
+    whatif:['两个脑洞都放出来了','好，现在看看两个人把剧情写到哪了'],
+    memory:['同一段回忆，两份现场证词','记忆对答案，最有意思的往往不是完全一样'],
+    truth:['答案都摊开了，慢慢看','这题不用判对错，先看看 TA 怎么说'],
+    rank:['两张排行榜摊开了，先看第一名','排序一翻开，优先级就藏不住了']
   };
   const FOLLOWUPS={
     either:['如果真的只能按这个答案过一天，你还会这么选吗？','TA 的答案是你预料中的吗？','这个选择里，你最在意的其实是哪一点？'],
@@ -68,6 +75,10 @@
     const own=COPY_BY_QUIZ[q.id]?.[pair.same?'same':'diff'];
     return pick(own?.length?own:(pair.same?SAME_GENERIC:DIFF_GENERIC),seed(q,i,pair,'copy'));
   }
+  function openCopyFor(q,pair,i){
+    const pool=OPEN_COPY[q.id]||['答案都翻开了，看看哪一处最想继续聊。'];
+    return pick(pool,seed(q,i,pair,'open-copy'));
+  }
   function sameStreak(q,i){
     if(!comparable(q))return 0;
     let n=0;
@@ -81,6 +92,7 @@
     return hash32(seed(q,i,pair,'follow-show'))%100<34;
   }
   function followText(q,i,pair){return pick(FOLLOWUPS[q.id],seed(q,i,pair,'follow-copy'))}
+  function followStateKey(q,i,pair){return seed(q,i,pair,'follow-open')}
 
   function decorate(){
     if(!duo.active||route.view!=='quiz'||!route.quizId)return;
@@ -96,19 +108,19 @@
       const before=!pair.same?previousSameStreak(q,i-1):0;
       const badge=streak>=2?`<span class="playful-streak">默契 ×${streak}</span>`:(before>=2?`<span class="playful-streak break">刚才连中了 ${before} 题</span>`:'');
       feedback.innerHTML=`${badge}<p>${esc(copyFor(q,pair,i))}</p>`;
-    }else{
-      feedback.innerHTML='<p>答案翻开了，看看你们从哪里想到了一起，又从哪里开始不一样。</p>';
-    }
+    }else feedback.innerHTML=`<p>${esc(openCopyFor(q,pair,i))}</p>`;
     box.appendChild(feedback);
 
     if(shouldFollow(q,i,pair)){
+      const stateKey=followStateKey(q,i,pair),opened=OPEN_FOLLOWUPS.has(stateKey);
       const follow=document.createElement('div');follow.className='playful-followup';
-      follow.innerHTML='<button type="button">追问一下</button><p hidden></p>';
+      follow.innerHTML=`<button type="button">${opened?'先收起来':'追问一下'}</button><p${opened?'':' hidden'}>${opened?esc(followText(q,i,pair)):''}</p>`;
       const btn=follow.querySelector('button'),text=follow.querySelector('p');
       btn.onclick=()=>{
         const opening=text.hidden;
         text.hidden=!opening;
-        if(opening){text.textContent=followText(q,i,pair);btn.textContent='先收起来'}else btn.textContent='追问一下';
+        if(opening){OPEN_FOLLOWUPS.add(stateKey);text.textContent=followText(q,i,pair);btn.textContent='先收起来'}
+        else{OPEN_FOLLOWUPS.delete(stateKey);btn.textContent='追问一下'}
       };
       box.appendChild(follow);
     }
