@@ -12,7 +12,6 @@
     html.app-booting body{visibility:hidden}
   </style>
   <script>
-    // Fail-safe: never leave the page hidden if a later enhancement script throws.
     window.__coupleQuizBootFallback=setTimeout(function(){document.documentElement.classList.remove('app-booting')},2200);
   </script>
   <link rel="stylesheet" href="styles.css">
@@ -48,10 +47,10 @@
   <script src="bank-migration.js?v=20260824-1930"></script>
   <script src="single-results.js?v=20260824-1728"></script>
   <script src="mqtt-lite.js?v=20260824-1934"></script>
-  <script src="duo.js"></script>
-  <script src="stability.js"></script>
+  <script src="duo.js?v=20260824-1954"></script>
+  <script src="stability.js?v=20260824-1954"></script>
   <script src="duo-nav.js?v=20260824-1700"></script>
-  <script src="polish.js?v=20260824-1847"></script>
+  <script src="polish.js?v=20260824-1954"></script>
   <script src="moments.js?v=20260824-1734"></script>
   <script src="round3.js?v=20260824-1847"></script>
   <script src="back-nav-fix.js?v=20260824-1748"></script>
@@ -64,7 +63,7 @@
   <script src="session-mode.js?v=20260824-1930"></script>
   <script src="nav-sync-fix.js?v=20260824-1930"></script>
   <script src="presence-will.js?v=20260824-1934"></script>
-  <script src="presence-live-ui.js?v=20260824-1948"></script>
+  <script src="presence-live-ui.js?v=20260824-1954"></script>
   <script>
     (function(){
       clearTimeout(window.__coupleQuizBootFallback);
