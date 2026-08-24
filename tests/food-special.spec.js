@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test('饮食第七轮是水果，第八轮是特殊口味', async ({ browser }) => {
+test('饮食第七轮是常见水果，第八轮是常见特殊口味', async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto('/');
@@ -15,9 +15,8 @@ test('饮食第七轮是水果，第八轮是特殊口味', async ({ browser }) 
   expect(rounds.fruit).toContain('山楂');
   for (const removed of ['李子','龙眼','桑葚','百香果','菠萝蜜']) expect(rounds.fruit).not.toContain(removed);
 
-  expect(rounds.special).toEqual(['皮蛋','臭豆腐','香椿','腐乳','鱼腥草／折耳根','猪脑','鸡胗','鸭肠','黄喉','蚕蛹','皮冻','酸笋','泡椒','芥末','花椒麻味','芝麻酱','酒酿','羊杂','茴香','姜味','咖喱','椰子味','奶酪','薄荷味','孜然味']);
-  expect(rounds.special).not.toContain('番茄炒蛋');
-  expect(rounds.special).not.toContain('红烧肉');
+  expect(rounds.special).toEqual(['皮蛋','臭豆腐','香椿','腐乳','酸笋','泡椒','芥末','花椒','芝麻酱','酒酿','茴香','生姜','咖喱','辣条','奶酪','辣椒油','豆豉','陈醋','豆瓣酱','花生酱','香油','黑巧克力','咖啡','抹茶甜品','话梅']);
+  for (const misplaced of ['猪脑','鸡胗','鸭肠','黄喉','羊杂','蚕蛹','皮冻','肥肉','鸡皮','臭鳜鱼']) expect(rounds.special).not.toContain(misplaced);
 
   await page.locator('[data-open="food"]').click();
   const chooser = page.locator('.session-mode-backdrop');
