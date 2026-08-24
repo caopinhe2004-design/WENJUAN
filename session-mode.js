@@ -5,7 +5,7 @@
   const ALL_PARTS=Array.from({length:8},(_,i)=>({
     part:i+1,start:i*25,end:(i+1)*25,label:`第 ${i+1} 轮`,range:`${i*25+1}–${(i+1)*25}`
   }));
-  const FOOD_PART_NAMES=['肉禽蛋和内脏','鱼类','虾蟹贝类和水产','常见蔬菜','根茎菌菇和葱蒜','豆制品主食和腌菜','水果','水果和家常菜'];
+  const FOOD_PART_NAMES=['肉禽蛋和内脏','鱼类','虾蟹贝类和水产','常见蔬菜','根茎菌菇和葱蒜','豆制品主食和腌菜','水果','特殊口味'];
   let sessionDraft=null;
   const remotePending=new Map();
 
