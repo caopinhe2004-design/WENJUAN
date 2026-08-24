@@ -1,5 +1,5 @@
 // Fast, refresh-free partner presence.
-// Visible clients heartbeat every 3s. A peer is considered offline after 9s without a fresh heartbeat.
+// Visible clients guarantee a heartbeat every 3s. A peer is considered offline after 9s without one.
 // Hiding/leaving the page also publishes offline immediately when the socket is still available.
 (function(){
   const FAST_ONLINE_MS=9000;
@@ -8,6 +8,7 @@
   let watchdog=null;
   let lastPartnerOnline=null;
   let lastClaimAt=0;
+  let lastBeatAt=0;
 
   function partnerPresence(){
     const other=duo.acceptedIds?.find(id=>id!==duo.clientId);
@@ -26,17 +27,24 @@
     };
   }
 
-  function publishVisibleHeartbeat(){
+  function publishVisibleHeartbeat(force=false){
     if(!duo.active||!duo.accepted||!duo.mqtt?.connected||document.visibilityState!=='visible')return;
-    duoPublishPresence(true).catch(()=>{});
     const now=Date.now();
-    if(now-lastClaimAt>30000){lastClaimAt=now;duoPublishClaim().catch(()=>{})}
+    if(force||now-lastBeatAt>=HEARTBEAT_MS){
+      lastBeatAt=now;
+      duoPublishPresence(true).catch(()=>{});
+    }
+    if(force||now-lastClaimAt>=30000){
+      lastClaimAt=now;
+      duoPublishClaim().catch(()=>{});
+    }
   }
 
+  // Keep compatibility with callers that explicitly restart presence.
   duoStartPresence=function(){
     clearInterval(duo.presenceTimer);
-    publishVisibleHeartbeat();
-    duo.presenceTimer=setInterval(publishVisibleHeartbeat,HEARTBEAT_MS);
+    publishVisibleHeartbeat(true);
+    duo.presenceTimer=setInterval(()=>publishVisibleHeartbeat(false),HEARTBEAT_MS);
   };
 
   function refreshPresenceUI(force=false){
@@ -49,25 +57,33 @@
     }
   }
 
+  function watchdogTick(){
+    if(!duo.active)return;
+    publishVisibleHeartbeat(false);
+    refreshPresenceUI(false);
+  }
+
   function startWatchdog(){
     clearInterval(watchdog);
-    watchdog=setInterval(()=>refreshPresenceUI(false),WATCHDOG_MS);
+    watchdog=setInterval(watchdogTick,WATCHDOG_MS);
   }
 
   async function markHidden(){
+    lastBeatAt=0;
     if(!duo.active||!duo.accepted||!duo.mqtt?.connected)return;
     try{await duoPublishPresence(false)}catch{}
   }
 
   async function markVisible(){
     if(!duo.active||!duo.mqtt?.connected)return;
+    lastBeatAt=0;lastClaimAt=0;
     try{await duoPublishClaim()}catch{}
     if(duo.accepted){
       try{await duoPublishPresence(true)}catch{}
+      lastBeatAt=Date.now();
       try{await duoPublishState()}catch{}
     }
     refreshPresenceUI(true);
-    duoStartPresence();
   }
 
   document.addEventListener('visibilitychange',()=>{
@@ -87,11 +103,11 @@
 
   const baseLeave=duoLeaveRoom;
   duoLeaveRoom=async function(){
-    clearInterval(watchdog);watchdog=null;lastPartnerOnline=null;
+    clearInterval(watchdog);watchdog=null;lastPartnerOnline=null;lastBeatAt=0;lastClaimAt=0;
     return baseLeave();
   };
 
   startWatchdog();
-  if(duo.active&&duo.accepted)duoStartPresence();
+  watchdogTick();
   setTimeout(()=>refreshPresenceUI(true),300);
 })();
