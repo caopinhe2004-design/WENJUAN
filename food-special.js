@@ -1,9 +1,12 @@
-// Replace the low-disagreement home-dish tail with foods that reveal more real taste differences.
+// Keep one full round of familiar fruit and one full round of distinctive tastes/textures.
 (function(){
   const q=typeof quiz==='function'?quiz('food'):null;
   if(!q||!Array.isArray(q.questions)||q.questions.length!==200)return;
 
   const options=['爱吃','能吃','不吃'];
+  const removedFruit=new Set(['李子','龙眼','桑葚','百香果','菠萝蜜']);
+  const fruits=q.questions.slice(150,180).filter(item=>!removedFruit.has(item?.[0]));
+
   const special=[
     ['皮蛋','粥旁边切了一小盘皮蛋，这种特别的香味和口感你会喜欢吗？'],
     ['臭豆腐','路过小摊闻到刚炸好的臭豆腐，你会想停下来买一份吗？'],
@@ -24,17 +27,24 @@
     ['酒酿','甜汤里盛着软软的酒酿米粒，这种微甜带酒香的味道你喜欢吗？'],
     ['羊杂','天气冷时来一碗热乎乎的羊杂汤，这股味道你会想喝吗？'],
     ['茴香','饺子里包着茴香馅，那股很有存在感的香气你吃得惯吗？'],
-    ['姜味','菜里能明显吃出生姜的辛香时，你会觉得提味还是想挑出来？']
+    ['姜味','菜里能明显吃出生姜的辛香时，你会觉得提味还是想挑出来？'],
+    ['咖喱','咖喱汁浓浓地拌进米饭里，这种香料味对你来说很开胃吗？'],
+    ['椰子味','甜品或饮料里有明显的椰子香，你会觉得清甜还是有点腻？'],
+    ['奶酪','披萨或焗饭里奶酪味很浓时，这股厚厚的奶香你喜欢吗？'],
+    ['薄荷味','糖果、饮料或甜品里有清凉的薄荷味，你会觉得很舒服吗？'],
+    ['孜然味','烧烤上撒了很多孜然，香料味很明显时你会更喜欢吗？']
   ].map(([name,scene])=>[name,[...options],scene]);
 
-  q.questions.splice(180,20,...special);
+  if(fruits.length!==25||special.length!==25)throw new Error('food rounds 7-8 must be 25 fruit + 25 special tastes');
+  q.questions=[...q.questions.slice(0,150),...fruits,...special];
 
-  // One-time migration: if the old eighth round was in progress, discard only that active round's
-  // answers so old home-dish choices are never shown against the new special-taste questions.
+  // The last two rounds changed shape. Clear only an unfinished active round 7/8 once,
+  // so an old answer can never be displayed against a different question. Archived history stays intact.
   try{
-    const MIGRATION='coupleSleepQuiz.foodSpecial.v1';
+    const MIGRATION='coupleSleepQuiz.foodTail.v2';
     if(!localStorage.getItem(MIGRATION)){
-      if(state?.sessions?.food?.part===8){
+      const part=Number(state?.sessions?.food?.part||0);
+      if(part===7||part===8){
         if(!state.ready||typeof state.ready!=='object')state.ready={};
         for(let i=0;i<25;i++){
           const k=key('food',i);
@@ -45,15 +55,4 @@
       localStorage.setItem(MIGRATION,'1');
     }
   }catch{}
-
-  // session-mode owns the chooser text inside a closure; keep the displayed category name current.
-  function fixCategoryLabel(root){
-    root?.querySelectorAll?.('.session-mode-modal b,.session-mode-modal h2').forEach(el=>{
-      if(el.textContent.includes('水果和家常菜'))el.textContent=el.textContent.replace('水果和家常菜','水果和特殊口味');
-    });
-  }
-  if(typeof document!=='undefined'&&document.body){
-    fixCategoryLabel(document);
-    if(typeof MutationObserver!=='undefined')new MutationObserver(()=>fixCategoryLabel(document)).observe(document.body,{childList:true,subtree:true});
-  }
 })();
