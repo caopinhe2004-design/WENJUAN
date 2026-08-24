@@ -7,6 +7,7 @@
   const WATCHDOG_MS=1000;
   let watchdog=null;
   let lastPartnerOnline=null;
+  let seenPartnerOnline=false;
   let lastClaimAt=0;
   let lastBeatAt=0;
 
@@ -40,27 +41,41 @@
     }
   }
 
-  // Keep compatibility with callers that explicitly restart presence.
   duoStartPresence=function(){
     clearInterval(duo.presenceTimer);
     publishVisibleHeartbeat(true);
     duo.presenceTimer=setInterval(()=>publishVisibleHeartbeat(false),HEARTBEAT_MS);
   };
 
-  function refreshPresenceUI(force=false){
-    if(!duo.active)return;
-    const online=duoPartnerOnline();
-    if(force||online!==lastPartnerOnline){
+  function noteTransition(online){
+    if(lastPartnerOnline===null){
       lastPartnerOnline=online;
-      duoRefreshUI();
-      if(typeof duoResolveSeats==='function')duoResolveSeats();
+      if(online)seenPartnerOnline=true;
+      return;
+    }
+    if(online===lastPartnerOnline)return;
+    const was=lastPartnerOnline;
+    lastPartnerOnline=online;
+    if(online){
+      const hadBeenHere=seenPartnerOnline;
+      seenPartnerOnline=true;
+      if(was===false&&hadBeenHere){
+        const name=typeof duoRemoteNickname==='function'?duoRemoteNickname():'TA';
+        showToast(`${name&&name!=='对方'?name:'TA'} 回来了`);
+        try{window.dispatchEvent(new CustomEvent('couplequiz:partner-returned'))}catch{}
+      }
     }
   }
 
   function watchdogTick(){
     if(!duo.active)return;
     publishVisibleHeartbeat(false);
-    refreshPresenceUI(false);
+    const online=duoPartnerOnline();
+    if(lastPartnerOnline===null){noteTransition(online);return}
+    if(online!==lastPartnerOnline){
+      duoRefreshUI();
+      if(!online&&typeof duoResolveSeats==='function')duoResolveSeats();
+    }
   }
 
   function startWatchdog(){
@@ -83,7 +98,7 @@
       lastBeatAt=Date.now();
       try{await duoPublishState()}catch{}
     }
-    refreshPresenceUI(true);
+    duoRefreshUI();
   }
 
   document.addEventListener('visibilitychange',()=>{
@@ -97,17 +112,17 @@
   const baseRefresh=duoRefreshUI;
   duoRefreshUI=function(){
     const out=baseRefresh();
-    lastPartnerOnline=duo.active?duoPartnerOnline():null;
+    if(duo.active)noteTransition(duoPartnerOnline());
+    else{lastPartnerOnline=null;seenPartnerOnline=false}
     return out;
   };
 
   const baseLeave=duoLeaveRoom;
   duoLeaveRoom=async function(){
-    clearInterval(watchdog);watchdog=null;lastPartnerOnline=null;lastBeatAt=0;lastClaimAt=0;
+    clearInterval(watchdog);watchdog=null;lastPartnerOnline=null;seenPartnerOnline=false;lastBeatAt=0;lastClaimAt=0;
     return baseLeave();
   };
 
   startWatchdog();
   watchdogTick();
-  setTimeout(()=>refreshPresenceUI(true),300);
 })();
