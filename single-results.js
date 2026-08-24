@@ -12,20 +12,21 @@ home = function(){
     </section>
     <section class="grid">
       ${QUIZZES.map(q=>{
-        const n=answeredCount(q), pct=Math.round(n/q.questions.length*100), finished=n===q.questions.length;
+        const n=answeredCount(q), pct=Math.round(n/q.questions.length*100);
         return `<div class="quiz-card-wrap" style="--soft:${q.soft}">
           <button class="quiz-card" data-open="${q.id}">
             <span class="icon">${q.icon}</span>
             <span><h3>${q.title}</h3><p>${q.desc}</p><div class="progress-note">${n?`${n}/${q.questions.length} · ${pct}%`:'还没玩'}</div></span>
             <span class="chev">›</span>
           </button>
-          ${n?`<button class="card-result-btn" data-view="${q.id}">${finished?'看看这套':'看看答到哪了'}</button>`:''}
         </div>`;
       }).join('')}
     </section>
     <div class="footer-note">挑一套就能开始</div>`;
-  app.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openQuiz(b.dataset.open));
-  app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>quizResult(quiz(b.dataset.view)));
+  app.querySelectorAll('[data-open]').forEach(b=>{
+    const q=quiz(b.dataset.open);
+    b.onclick=()=>openQuiz(q.id,firstUnanswered(q));
+  });
 };
 
 quizResult = function(q){
