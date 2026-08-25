@@ -1,5 +1,5 @@
 const CACHE_PREFIX='two-people-one-page-';
-const CACHE_NAME=CACHE_PREFIX+'20260825-3';
+const CACHE_NAME=CACHE_PREFIX+'20260825-4';
 
 function localAsset(value){
   if(!value || value.startsWith('data:') || value.startsWith('#') || value.startsWith('mailto:') || value.startsWith('tel:'))return null;
@@ -51,7 +51,7 @@ self.addEventListener('activate',event=>{
 async function networkFirst(request,isNavigation=false){
   const cache=await caches.open(CACHE_NAME);
   try{
-    const response=await fetch(request);
+    const response=await fetch(request,{cache:isNavigation?'reload':'no-cache'});
     if(response && response.ok)cache.put(request,response.clone()).catch(()=>{});
     return response;
   }catch{
