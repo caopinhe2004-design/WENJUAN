@@ -1,4 +1,4 @@
-// Installability, update checks, and an in-app refresh affordance for “两个人的一页”.
+// Installability and update actions used by the Settings panel for “两个人的一页”.
 (function(){
   let deferredPrompt=window.__pwaInstallPrompt||null;
   let refreshing=false;
@@ -21,35 +21,6 @@
       url.searchParams.delete('_refresh');
       history.replaceState(history.state,'',url.pathname+(url.searchParams.size?`?${url.searchParams}`:'')+url.hash);
     }catch{}
-  }
-
-  function removeInstall(){
-    document.querySelectorAll('[data-pwa-save]').forEach(el=>el.remove());
-  }
-
-  function injectInstall(){
-    removeInstall();
-    if(standalone() || typeof route==='undefined' || route.view!=='home' || typeof app==='undefined')return;
-    const wrap=document.createElement('div');
-    wrap.className='pwa-save';
-    wrap.dataset.pwaSave='1';
-    wrap.innerHTML='<button type="button" class="pwa-save-btn" data-pwa-install>把这一页留在桌面</button>';
-    const footer=app.querySelector('.footer-note');
-    if(footer)footer.insertAdjacentElement('beforebegin',wrap);
-    else app.appendChild(wrap);
-    wrap.querySelector('[data-pwa-install]')?.addEventListener('click',showInstallPanel);
-  }
-
-  function injectRefresh(){
-    document.querySelector('[data-pwa-refresh]')?.remove();
-    const button=document.createElement('button');
-    button.type='button';
-    button.className='pwa-refresh-btn';
-    button.dataset.pwaRefresh='1';
-    button.textContent='刷新';
-    button.setAttribute('aria-label','刷新到最新版本');
-    button.addEventListener('click',refreshApp);
-    document.body.appendChild(button);
   }
 
   function closeGuide(){document.querySelector('.pwa-guide-backdrop')?.remove()}
@@ -115,12 +86,8 @@
       const choice=await prompt.userChoice;
       deferredPrompt=null;
       window.__pwaInstallPrompt=null;
-      if(choice?.outcome==='accepted'){
-        closeGuide();
-        removeInstall();
-      }else{
-        renderInstallPanel();
-      }
+      if(choice?.outcome==='accepted')closeGuide();
+      else renderInstallPanel();
     }catch{
       deferredPrompt=null;
       window.__pwaInstallPrompt=null;
@@ -140,8 +107,6 @@
   async function refreshApp(){
     if(refreshing)return;
     refreshing=true;
-    const button=document.querySelector('[data-pwa-refresh]');
-    if(button){button.disabled=true;button.textContent='刷新中…'}
     try{
       if(typeof duoRoomStoreSave==='function')duoRoomStoreSave();
       await updateWorker();
@@ -161,14 +126,12 @@
     deferredPrompt=event;
     window.__pwaInstallPrompt=event;
     if(document.querySelector('.pwa-guide-backdrop'))renderInstallPanel();
-    injectInstall();
   });
 
   window.addEventListener('appinstalled',()=>{
     deferredPrompt=null;
     window.__pwaInstallPrompt=null;
     closeGuide();
-    removeInstall();
   });
 
   if('serviceWorker' in navigator){
@@ -177,18 +140,6 @@
     window.addEventListener('pageshow',checkForUpdate);
   }
 
-  if(typeof home==='function'){
-    const baseHome=home;
-    home=function(){
-      const out=baseHome();
-      queueMicrotask(injectInstall);
-      return out;
-    };
-  }
-
   cleanRefreshMarker();
-  injectRefresh();
-  if(typeof route!=='undefined' && route.view==='home')injectInstall();
-
-  window.couplePWA={standalone,showGuide:showInstallPanel,showInstall:showInstallPanel,injectInstall,refresh:refreshApp,checkForUpdate};
+  window.couplePWA={standalone,showGuide:showInstallPanel,showInstall:showInstallPanel,refresh:refreshApp,checkForUpdate};
 })();
