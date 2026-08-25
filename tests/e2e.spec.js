@@ -2,12 +2,16 @@ const { test, expect } = require('@playwright/test');
 
 async function waitForBoot(page) {
   await page.waitForFunction(() => !document.documentElement.classList.contains('app-booting'));
+}
+
+async function waitForHome(page) {
+  await waitForBoot(page);
   await expect(page.locator('[data-open]')).toHaveCount(13);
 }
 
 async function openFresh(page) {
   await page.goto('/');
-  await waitForBoot(page);
+  await waitForHome(page);
 }
 
 async function startPart(page, quizId, part = 1) {
