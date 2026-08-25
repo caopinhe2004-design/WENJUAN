@@ -40,7 +40,7 @@
 
     const custom=document.createElement('button');
     custom.type='button';custom.className=`option choice-custom-option${isCustom(val)?' selected':''}`;
-    custom.textContent='＋ 自己填写';
+    custom.textContent='＋ 自己写一个';
     options.appendChild(custom);
 
     const opened=OPEN_CUSTOM.has(stateKey);
