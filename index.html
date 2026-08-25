@@ -8,14 +8,23 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-v2.png">
+  <link rel="preload" as="image" href="assets/launch-v2.webp" type="image/webp">
   <title>两个人的一页</title>
   <style>
     html{background:#f7f1ee}
-    html.app-booting body{visibility:hidden}
+    html.app-booting #app,html.app-booting .ambient{visibility:hidden}
+    #app-splash{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#f7f1ee;opacity:1;transition:opacity .42s ease;overflow:hidden}
+    #app-splash img{width:100%;height:100%;object-fit:contain;display:block}
+    #app-splash.done{opacity:0;pointer-events:none}
+    @media(prefers-reduced-motion:reduce){#app-splash{transition:none}}
   </style>
   <script>
-    window.__coupleQuizBootFallback=setTimeout(function(){document.documentElement.classList.remove('app-booting')},2200);
+    window.__coupleQuizBootFallback=setTimeout(function(){
+      document.documentElement.classList.remove('app-booting');
+      var splash=document.getElementById('app-splash');
+      if(splash){splash.classList.add('done');setTimeout(function(){splash.remove()},460)}
+    },2800);
     window.__pwaInstallPrompt=null;
     window.addEventListener('beforeinstallprompt',function(event){
       event.preventDefault();
@@ -39,8 +48,10 @@
   <link rel="stylesheet" href="history-word.css?v=20260824-2138">
   <link rel="stylesheet" href="pwa.css?v=20260825-1553">
   <link rel="stylesheet" href="room-code.css?v=20260825-1252">
+  <link rel="stylesheet" href="settings.css?v=20260825-1624">
 </head>
 <body>
+  <div id="app-splash" aria-hidden="true"><img src="assets/launch-v2.webp" alt=""></div>
   <div class="ambient a1"></div><div class="ambient a2"></div>
   <main id="app" class="app-shell" aria-live="polite"></main>
   <script src="app.js"></script>
@@ -90,10 +101,15 @@
   <script src="site-copy.js?v=20260825-1108"></script>
   <script src="pwa.js?v=20260825-1553"></script>
   <script src="room-code.js?v=20260825-1252"></script>
+  <script src="settings.js?v=20260825-1624"></script>
   <script>
     (function(){
       clearTimeout(window.__coupleQuizBootFallback);
-      var reveal=function(){document.documentElement.classList.remove('app-booting')};
+      var reveal=function(){
+        document.documentElement.classList.remove('app-booting');
+        var splash=document.getElementById('app-splash');
+        if(splash){splash.classList.add('done');setTimeout(function(){splash.remove()},460)}
+      };
       if(window.requestAnimationFrame)requestAnimationFrame(function(){requestAnimationFrame(reveal)});
       else reveal();
     })();
