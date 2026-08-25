@@ -1,35 +1,50 @@
-// Human-friendly room codes layered on top of the existing encrypted duo transport.
+// Memorable room codes layered on top of the existing encrypted duo transport.
 (function(){
-  const ROOM_CODE_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const ROOM_CODE_LENGTH=16;
+  const ROOM_CODE_RANDOM_ALPHABET='abcdefghjkmnpqrstuvwxyz23456789';
+  const ROOM_CODE_RANDOM_LENGTH=6;
+  const ROOM_CODE_MAX_LENGTH=24;
   const ROOM_CODE_HASH_KEY='rc';
-  const ROOM_CODE_DOMAIN='two-people-one-page-room-v1:';
+  const ROOM_CODE_DOMAIN='two-people-one-page-room-v2:';
+  const LEGACY_ROOM_CODE_DOMAIN='two-people-one-page-room-v1:';
+  const LEGACY_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
   function normalizeRoomCode(value){
-    return String(value||'').toUpperCase().replace(/[\s-]+/g,'').trim();
+    let text=String(value||'');
+    try{text=text.normalize('NFKC')}catch{}
+    return text.trim().replace(/\s+/g,'').toLowerCase();
   }
+
+  function codeLength(value){return [...normalizeRoomCode(value)].length}
 
   function validRoomCode(value){
     const code=normalizeRoomCode(value);
-    return code.length===ROOM_CODE_LENGTH && [...code].every(ch=>ROOM_CODE_ALPHABET.includes(ch));
+    const length=[...code].length;
+    if(length<1||length>ROOM_CODE_MAX_LENGTH)return false;
+    try{return /^[\p{L}\p{N}_-]+$/u.test(code)}catch{return /^[a-z0-9_-]+$/i.test(code)}
   }
 
-  function formatRoomCode(value){
-    const code=normalizeRoomCode(value);
-    return (code.match(/.{1,4}/g)||[]).join('-');
+  function legacyCompact(value){return String(value||'').toUpperCase().replace(/[\s-]+/g,'')}
+  function legacyRoomCode(value){
+    const compact=legacyCompact(value);
+    return compact.length===16&&[...compact].every(ch=>LEGACY_ALPHABET.includes(ch));
   }
+
+  function formatRoomCode(value){return normalizeRoomCode(value)}
 
   function generateRoomCode(){
-    const bytes=crypto.getRandomValues(new Uint8Array(ROOM_CODE_LENGTH));
+    const bytes=crypto.getRandomValues(new Uint8Array(ROOM_CODE_RANDOM_LENGTH));
     let out='';
-    for(const byte of bytes)out+=ROOM_CODE_ALPHABET[byte&31];
+    for(const byte of bytes)out+=ROOM_CODE_RANDOM_ALPHABET[byte&31];
     return out;
   }
 
   async function roomSecretFromCode(value){
     const code=normalizeRoomCode(value);
     if(!validRoomCode(code))throw new Error('房间码无效');
-    const material=new TextEncoder().encode(ROOM_CODE_DOMAIN+code);
+    const source=legacyRoomCode(value)
+      ? LEGACY_ROOM_CODE_DOMAIN+legacyCompact(value)
+      : ROOM_CODE_DOMAIN+code;
+    const material=new TextEncoder().encode(source);
     const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',material));
     return duoB64Url(digest);
   }
@@ -88,35 +103,39 @@
     }
   }
 
+  function prepareCodeInput(input,error){
+    input.addEventListener('input',()=>{
+      const cleaned=[...normalizeRoomCode(input.value)].slice(0,ROOM_CODE_MAX_LENGTH).join('');
+      if(input.value!==cleaned)input.value=cleaned;
+      if(error)error.textContent='';
+    });
+  }
+
+  function roomCodeError(input,error){
+    if(validRoomCode(input.value))return false;
+    error.textContent='房间码可以是 1–24 位字母、数字或中文，也可以带 - 和 _。';
+    input.focus();
+    return true;
+  }
+
   function showRoomCodeModal(){
     document.querySelector('.duo-modal-backdrop')?.remove();
     const wrap=document.createElement('div');
     wrap.className='duo-modal-backdrop';
     wrap.innerHTML=`<div class="duo-modal room-code-modal" role="dialog" aria-modal="true" aria-labelledby="room-code-title">
       <h2 id="room-code-title">输入房间码</h2>
-      <p>把对方发来的 16 位房间码写在这里，就能进入同一间房。</p>
-      <input class="room-code-input" data-room-code-input maxlength="19" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABCD-EFGH-JKLM-NPQR" aria-label="房间码">
+      <p>输入你们约好的名字就可以。比如 cph、wyy，短一点也没关系。</p>
+      <input class="room-code-input" data-room-code-input maxlength="${ROOM_CODE_MAX_LENGTH}" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="text" placeholder="比如 cph" aria-label="房间码">
       <div class="room-code-error" data-room-code-error aria-live="polite"></div>
       <div class="duo-modal-actions"><button type="button" data-cancel>取消</button><button type="button" class="primary" data-room-code-submit>加入房间</button></div>
     </div>`;
     document.body.appendChild(wrap);
     const input=wrap.querySelector('[data-room-code-input]');
     const error=wrap.querySelector('[data-room-code-error]');
-    input.focus();
-    input.addEventListener('input',()=>{
-      const caret=input.selectionStart;
-      const raw=normalizeRoomCode(input.value).slice(0,ROOM_CODE_LENGTH);
-      input.value=formatRoomCode(raw);
-      error.textContent='';
-      if(caret===input.value.length)input.setSelectionRange(input.value.length,input.value.length);
-    });
+    prepareCodeInput(input,error);input.focus();
     const submit=()=>{
+      if(roomCodeError(input,error))return;
       const code=normalizeRoomCode(input.value);
-      if(!validRoomCode(code)){
-        error.textContent='房间码应为 16 位字母和数字。';
-        input.focus();
-        return;
-      }
       const join=async()=>{
         try{await activateFromCode(code)}catch{showToast('没有进入房间，请检查房间码后再试')}
       };
@@ -130,12 +149,46 @@
     wrap.addEventListener('click',event=>{if(event.target===wrap)wrap.remove()});
   }
 
+  function showCustomRoomCodeModal(){
+    document.querySelector('.duo-modal-backdrop')?.remove();
+    const wrap=document.createElement('div');
+    wrap.className='duo-modal-backdrop';
+    wrap.innerHTML=`<div class="duo-modal room-code-modal" role="dialog" aria-modal="true" aria-labelledby="custom-room-code-title">
+      <h2 id="custom-room-code-title">给房间起个名字</h2>
+      <p>写一个只有你们自己好记的房间码。cph、wyy、纪念日，怎样顺手怎样来。</p>
+      <input class="room-code-input" data-room-code-custom maxlength="${ROOM_CODE_MAX_LENGTH}" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="text" placeholder="比如 cph" aria-label="自定义房间码">
+      <div class="room-code-note">最多 24 位；字母不区分大小写。</div>
+      <div class="room-code-error" data-room-code-error aria-live="polite"></div>
+      <div class="duo-modal-actions"><button type="button" data-cancel>取消</button><button type="button" class="primary" data-room-code-create>创建房间</button></div>
+    </div>`;
+    document.body.appendChild(wrap);
+    const input=wrap.querySelector('[data-room-code-custom]');
+    const error=wrap.querySelector('[data-room-code-error]');
+    prepareCodeInput(input,error);input.focus();
+    const submit=async()=>{
+      if(roomCodeError(input,error))return;
+      const code=normalizeRoomCode(input.value);
+      wrap.remove();
+      try{await activateFromCode(code)}catch{showToast('房间创建失败，请再试一次')}
+    };
+    wrap.querySelector('[data-room-code-create]').onclick=submit;
+    input.addEventListener('keydown',event=>{if(event.key==='Enter')submit()});
+    wrap.querySelector('[data-cancel]').onclick=()=>wrap.remove();
+    wrap.addEventListener('click',event=>{if(event.target===wrap)wrap.remove()});
+  }
+
   duoCreateRoom=function(){
     const code=generateRoomCode();
     const proceed=()=>activateFromCode(code).catch(()=>showToast('房间创建失败，请再试一次'));
     if(duo.nickname)proceed();
     else duoAskNickname({title:'创建双人房间',message:'写下你的昵称。房间建好后，可以把链接或房间码发给 TA。',confirmText:'创建房间',onDone:proceed});
   };
+
+  function duoCreateCustomRoom(){
+    const proceed=()=>showCustomRoomCodeModal();
+    if(duo.nickname)proceed();
+    else duoAskNickname({title:'创建双人房间',message:'先写下你的昵称，再给这间房起一个好记的名字。',confirmText:'下一步',onDone:proceed});
+  }
 
   const baseInviteURL=duoInviteURL;
   duoInviteURL=function(){
@@ -161,8 +214,9 @@
     const hero=app.querySelector('.hero');if(!hero)return;
     const box=document.createElement('section');box.className='duo-panel';
     if(!duo.active){
-      box.innerHTML=`<div class="duo-panel-head"><div><h3>一起答</h3><p>开一间只属于你们的房间。发链接给 TA，或者让 TA 直接输入房间码。</p></div><span class="duo-badge"><i class="duo-dot off"></i>单人模式</span></div><div class="duo-actions duo-entry-actions"><button class="duo-primary" data-duo-create>创建房间</button><button data-duo-join-code>输入房间码</button></div>`;
+      box.innerHTML=`<div class="duo-panel-head"><div><h3>一起答</h3><p>可以随手开一间，也可以自己给房间起个好记的名字。</p></div><span class="duo-badge"><i class="duo-dot off"></i>单人模式</span></div><div class="duo-actions duo-entry-actions"><button class="duo-primary" data-duo-create>创建房间</button><button data-duo-create-custom>自己起房间码</button><button data-duo-join-code>输入房间码</button></div>`;
       box.querySelector('[data-duo-create]').onclick=duoCreateRoom;
+      box.querySelector('[data-duo-create-custom]').onclick=duoCreateCustomRoom;
       box.querySelector('[data-duo-join-code]').onclick=showRoomCodeModal;
     }else{
       const partner=duoRemoteNickname();
@@ -178,7 +232,7 @@
     hero.insertAdjacentElement('afterend',box);
   };
 
-  // Links created by this layer carry rc alongside the encrypted secret. Preserve it after duo.js auto-joins.
+  // Invite links carry rc alongside the encrypted secret. Preserve it after duo.js auto-joins.
   const initialCode=roomCodeFromHash();
   if(validRoomCode(initialCode)){
     const persist=()=>{if(duo.active){rememberRoomCode(initialCode);if(route.view==='home')duoInjectHome();return true}return false};
@@ -190,5 +244,5 @@
 
   if(route.view==='home')duoInjectHome();
 
-  window.coupleRoomCode={normalize:normalizeRoomCode,format:formatRoomCode,valid:validRoomCode,deriveSecret:roomSecretFromCode,showJoin:showRoomCodeModal,current:currentRoomCode};
+  window.coupleRoomCode={normalize:normalizeRoomCode,format:formatRoomCode,valid:validRoomCode,length:codeLength,deriveSecret:roomSecretFromCode,showJoin:showRoomCodeModal,showCreate:duoCreateCustomRoom,current:currentRoomCode,generate:generateRoomCode};
 })();
