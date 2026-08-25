@@ -14,17 +14,29 @@ async function openEither(page){
   await expect(page.locator('.question-card')).toBeVisible();
 }
 
-test('选择预置答案后仍可切换到自己填写', async ({ page }) => {
+test('预置答案和自己填写严格互斥', async ({ page }) => {
   await openEither(page);
-  const presets=page.locator('.question-card .options .option:not(.choice-custom-option)');
+  const presets=page.locator('.question-card .options [data-opt]');
+
   await presets.first().click();
+  await expect(presets.first()).toHaveClass(/selected/);
+  await expect(page.locator('.question-card .options [data-opt].selected')).toHaveCount(1);
+
   await page.locator('.choice-custom-option').click();
-  const input=page.locator('.choice-custom-editor input');
-  await expect(input).toBeVisible();
+  const editor=page.locator('.choice-custom-option.choice-custom-editor');
+  const input=editor.locator('input');
+  await expect(editor).toHaveClass(/selected/);
+  await expect(page.locator('.question-card .options [data-opt].selected')).toHaveCount(0);
   await input.fill('我的答案');
-  await expect(input).toHaveValue('我的答案');
-  const answer=await page.evaluate(()=>state.answers[key('either',route.index)]);
-  expect(answer).toEqual({kind:'custom',text:'我的答案'});
+  await expect(page.locator('.question-card .options [data-opt].selected')).toHaveCount(0);
+  expect(await page.evaluate(()=>state.answers[key('either',route.index)])).toEqual({kind:'custom',text:'我的答案'});
+
+  await page.locator('.question-card .options [data-opt="1"]').click();
+  await expect(page.locator('.choice-custom-option input')).toHaveCount(0);
+  await expect(page.locator('.choice-custom-option')).not.toHaveClass(/selected/);
+  await expect(page.locator('.question-card .options [data-opt].selected')).toHaveCount(1);
+  await expect(page.locator('.question-card .options [data-opt="1"]')).toHaveClass(/selected/);
+  expect(await page.evaluate(()=>state.answers[key('either',route.index)])).toBe(1);
 });
 
 test('自己填写时 Backspace 只删除文字', async ({ page }) => {
@@ -58,5 +70,6 @@ test('自己填写原位覆盖选项，实时刷新不丢焦点和选中态', as
   await expect(input).toHaveValue('连续输入测试');
   await expect(editor).toHaveClass(/selected/);
   await expect(input).toHaveAttribute('data-keep-node','yes');
+  await expect(page.locator('.question-card .options [data-opt].selected')).toHaveCount(0);
   await expect(page.locator('.choice-custom-option + .choice-custom-editor')).toHaveCount(0);
 });
