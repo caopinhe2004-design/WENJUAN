@@ -5,7 +5,8 @@
   const CUSTOM_KIND='custom';
   const customKey=(qid,i)=>`${qid}:${i}`;
   const isCustom=v=>!!(v&&typeof v==='object'&&v.kind===CUSTOM_KIND&&typeof v.text==='string');
-  const customText=v=>isCustom(v)?v.text.trim():'';
+  const customRawText=v=>isCustom(v)?v.text:'';
+  const customText=v=>customRawText(v).trim();
 
   window.choiceAnswerIsCustom=isCustom;
   window.choiceAnswerText=customText;
@@ -33,46 +34,65 @@
     const options=app.querySelector('.question-card .options');if(!options)return;
 
     options.querySelectorAll('.letter').forEach(el=>el.remove());
-    options.querySelector('.choice-custom-option')?.remove();
-    options.querySelector('.choice-custom-editor')?.remove();
-
     if(isCustom(val))OPEN_CUSTOM.add(stateKey);
-
-    const custom=document.createElement('button');
-    custom.type='button';custom.className=`option choice-custom-option${isCustom(val)?' selected':''}`;
-    custom.textContent='＋ 自己写一个';
-    options.appendChild(custom);
+    else if(typeof val==='number')OPEN_CUSTOM.delete(stateKey);
 
     const opened=OPEN_CUSTOM.has(stateKey);
-    if(opened){
-      const editor=document.createElement('div');editor.className='choice-custom-editor';
-      editor.innerHTML=`<input type="text" maxlength="80" autocomplete="off" placeholder="输入答案" value="${esc(customText(val))}">`;
-      options.appendChild(editor);
-      const input=editor.querySelector('input');
-      input.oninput=()=>{
-        const raw=input.value.slice(0,80),text=raw.trim();
-        if(text){state.answers[k]={kind:CUSTOM_KIND,text:raw};custom.classList.add('selected')}
-        else{delete state.answers[k];custom.classList.remove('selected')}
-        save();
-      };
-      // Keep editing keys inside the input. In pair mode they must never trigger question controls.
-      input.addEventListener('keydown',e=>{
-        e.stopPropagation();
-        if(e.key==='Enter'){e.preventDefault();input.blur()}
-      });
-      input.addEventListener('keyup',e=>e.stopPropagation());
-    }
-    custom.onclick=()=>{
-      // Switching from a preset answer to custom input clears the preset first.
-      // Otherwise the numeric preset value makes the custom editor close again on re-render.
-      if(typeof state.answers?.[k]==='number'){
-        delete state.answers[k];
-        save();
+    const existing=options.querySelector('.choice-custom-option');
+    if(existing?.dataset.customKey===stateKey){
+      const input=existing.querySelector('input');
+      if(opened&&input){
+        existing.classList.add('selected','choice-custom-editor');
+        return;
       }
-      OPEN_CUSTOM.add(stateKey);
-      decorateChoice();
-      requestAnimationFrame(()=>app.querySelector('.choice-custom-editor input')?.focus());
+      if(!opened&&!input){
+        existing.classList.remove('selected');
+        return;
+      }
+    }
+
+    existing?.remove();
+    options.querySelectorAll('.choice-custom-editor:not(.choice-custom-option)').forEach(el=>el.remove());
+
+    if(!opened){
+      const custom=document.createElement('button');
+      custom.type='button';
+      custom.className='option choice-custom-option';
+      custom.dataset.customKey=stateKey;
+      custom.textContent='＋ 自己写一个';
+      custom.onclick=()=>{
+        if(typeof state.answers?.[k]==='number'){
+          delete state.answers[k];
+          save();
+        }
+        OPEN_CUSTOM.add(stateKey);
+        decorateChoice();
+        requestAnimationFrame(()=>app.querySelector('.choice-custom-editor input')?.focus());
+      };
+      options.appendChild(custom);
+      return;
+    }
+
+    const custom=document.createElement('div');
+    custom.className='option choice-custom-option choice-custom-editor selected';
+    custom.dataset.customKey=stateKey;
+    custom.innerHTML=`<input type="text" maxlength="80" autocomplete="off" aria-label="自己写一个" placeholder="自己写一个…" value="${esc(customRawText(val))}">`;
+    options.appendChild(custom);
+    const input=custom.querySelector('input');
+    input.oninput=()=>{
+      const raw=input.value.slice(0,80),text=raw.trim();
+      if(input.value!==raw)input.value=raw;
+      if(text)state.answers[k]={kind:CUSTOM_KIND,text:raw};
+      else delete state.answers[k];
+      custom.classList.add('selected');
+      save();
     };
+    input.addEventListener('keydown',e=>{
+      e.stopPropagation();
+      if(e.key==='Enter'){e.preventDefault();input.blur()}
+    });
+    input.addEventListener('keyup',e=>e.stopPropagation());
+    custom.addEventListener('click',e=>{if(e.target!==input)input.focus()});
   }
 
   function stripMatchFeedback(){
