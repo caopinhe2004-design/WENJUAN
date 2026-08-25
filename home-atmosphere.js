@@ -1,4 +1,4 @@
-// A quieter, more literary home page. Keep counts and mechanics out of the first impression.
+// A quieter, more literary home page. Keep counts, mechanics and time-of-day limits out of the first impression.
 (function(){
   const HOME_DESCRIPTIONS={
     either:'一些很小的选择，也会悄悄照见两个人的日常。',
@@ -11,7 +11,7 @@
     cohabit:'把未来的日常提前摊开一点，看看一盏灯、一顿饭、一张床会是什么样。',
     pref:'喜欢什么、避开什么，把那些细小的偏好慢慢说给对方听。',
     sweet:'有些事只是轻轻一下，却会让人心里亮很久。',
-    odd:'认真生活已经够久了，今晚允许彼此胡思乱想。',
+    odd:'认真生活已经够久了，偶尔也允许彼此胡思乱想。',
     talk:'不急着得出结论，只把心里的话多留一会儿。',
     food:'从一桌家常饭开始，看看以后哪些味道会常常一起出现。'
   };
@@ -36,10 +36,10 @@
     const partner=typeof polishPartner==='function'?polishPartner():'TA';
     if(duoPartnerOnline()){
       if(title)title.textContent=`${partner} 已经在这里了`;
-      if(desc)desc.textContent='挑一页吧。今晚不用赶时间，一起慢慢答。';
+      if(desc)desc.textContent='挑一页吧。不用赶时间，一起慢慢答。';
     }else{
       if(title)title.textContent='这一页还为 TA 留着';
-      if(desc)desc.textContent=`房间还亮着，等 ${partner} 回来，再把没说完的话接下去。`;
+      if(desc)desc.textContent=`等 ${partner} 回来，再把没说完的话接下去。`;
     }
   }
 
@@ -48,9 +48,9 @@
     const hero=app.querySelector('.hero');
     if(hero){
       const eyebrow=hero.querySelector('.eyebrow'),h1=hero.querySelector('h1'),p=hero.querySelector('p');
-      if(eyebrow)eyebrow.textContent='夜深以后，话可以慢一点';
-      if(h1)h1.textContent='今晚，聊点什么？';
-      if(p)p.textContent='白天被忙碌掠过的小事，夜里慢慢捡回来。随手翻一页，听听彼此今天没有说出口的话。';
+      if(eyebrow)eyebrow.textContent='有些话，慢一点说也很好';
+      if(h1)h1.textContent='这一刻，聊点什么？';
+      if(p)p.textContent='日子总有匆匆经过的时候。随手翻一页，把那些没来得及说的小事，慢慢说给彼此听。';
       hero.querySelector('.mini-row')?.remove();
     }
 
@@ -65,14 +65,14 @@
     if(picker){
       const small=picker.querySelector('.play-picker-copy span'),big=picker.querySelector('.play-picker-copy b');
       if(small)small.textContent='若一时不知道从哪儿说起';
-      if(big)big.textContent='就凭今晚的心情，选一个开头';
+      if(big)big.textContent='就凭此刻的心情，选一个开头';
       const buttons=picker.querySelectorAll('[data-pick]');
-      const labels={easy:'轻轻聊聊',talk:'说点心里话',wild:'去远一点想',all:'交给今晚'};
+      const labels={easy:'轻轻聊聊',talk:'说点心里话',wild:'去远一点想',all:'随手翻一页'};
       buttons.forEach(b=>{if(labels[b.dataset.pick])b.textContent=labels[b.dataset.pick]});
     }
 
     const footer=app.querySelector('.footer-note');
-    if(footer)footer.textContent='愿这些零碎的话，慢慢变成你们共同记得的夜晚。';
+    if(footer)footer.textContent='愿这些零碎的话，慢慢变成你们共同记得的日子。';
     refineRoomCopy();
   }
 
