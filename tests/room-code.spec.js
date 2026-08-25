@@ -62,6 +62,9 @@ test('可以自己起一个短房间码并手动加入同一房间', async ({ br
 
 test('普通创建房间只生成一个简短房间码', async ({ page }) => {
   await boot(page);
+  const generated = await page.evaluate(() => Array.from({length:512}, () => coupleRoomCode.generate()));
+  expect(generated.every(code => /^[a-z2-9]{6}$/.test(code))).toBe(true);
+
   await page.locator('[data-duo-create]').click();
   const modal = page.locator('.duo-modal');
   await modal.locator('input').fill('甲');
