@@ -1,0 +1,26 @@
+{
+  "name": "两个人的一页",
+  "short_name": "两个人的一页",
+  "description": "随手翻一页，把那些没来得及说的小事，慢慢说给彼此听。",
+  "lang": "zh-CN",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f1ee",
+  "theme_color": "#f7f1ee",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

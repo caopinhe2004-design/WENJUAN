@@ -7,11 +7,13 @@ test('PWA 清单、图标、安装入口和离线启动可用', async ({ page, c
   const manifestHref = await page.locator('link[rel="manifest"]').getAttribute('href');
   expect(manifestHref).toContain('manifest.webmanifest');
   await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
-  expect(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toMatch(/^data:image\/png;base64,/);
+  expect(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toBe('icons/apple-touch-icon.png');
 
   const manifest = await page.evaluate(async () => {
     const href = document.querySelector('link[rel="manifest"]').href;
-    return fetch(href).then(r => r.json());
+    const response = await fetch(href);
+    if (!response.ok) throw new Error(`manifest ${response.status}`);
+    return response.json();
   });
   expect(manifest.name).toBe('两个人的一页');
   expect(manifest.short_name).toBe('两个人的一页');
@@ -23,7 +25,9 @@ test('PWA 清单、图标、安装入口和离线启动可用', async ({ page, c
   const dimensions = await page.evaluate(async icons => {
     const out = [];
     for (const icon of icons) {
-      const blob = await fetch(icon.src).then(r => r.blob());
+      const response = await fetch(icon.src);
+      if (!response.ok) throw new Error(`${icon.src} ${response.status}`);
+      const blob = await response.blob();
       const bitmap = await createImageBitmap(blob);
       out.push([bitmap.width, bitmap.height]);
       bitmap.close();
@@ -31,6 +35,16 @@ test('PWA 清单、图标、安装入口和离线启动可用', async ({ page, c
     return out;
   }, manifest.icons);
   expect(dimensions).toEqual(expect.arrayContaining([[192, 192], [512, 512]]));
+
+  const appleSize = await page.evaluate(async () => {
+    const href = document.querySelector('link[rel="apple-touch-icon"]').href;
+    const response = await fetch(href);
+    const bitmap = await createImageBitmap(await response.blob());
+    const size = [bitmap.width, bitmap.height];
+    bitmap.close();
+    return size;
+  });
+  expect(appleSize).toEqual([180, 180]);
 
   await expect(page.locator('[data-pwa-install]')).toHaveText('把这一页留在桌面');
   await page.locator('[data-pwa-install]').click();
