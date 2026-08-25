@@ -39,3 +39,24 @@ test('自己填写时 Backspace 只删除文字', async ({ page }) => {
   const answer=await page.evaluate(()=>state.answers[key('either',route.index)]);
   expect(answer).toEqual({kind:'custom',text:'ab'});
 });
+
+test('自己填写原位覆盖选项，实时刷新不丢焦点和选中态', async ({ page }) => {
+  await openEither(page);
+  const custom=page.locator('.choice-custom-option');
+  await expect(custom.locator('input')).toHaveCount(0);
+  await custom.click();
+
+  const editor=page.locator('.choice-custom-option.choice-custom-editor');
+  const input=editor.locator('input');
+  await expect(editor).toHaveClass(/selected/);
+  await expect(input).toBeFocused();
+  await input.fill('连续输入测试');
+  await input.evaluate(el=>{el.dataset.keepNode='yes'});
+
+  await page.evaluate(()=>duoRefreshUI());
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue('连续输入测试');
+  await expect(editor).toHaveClass(/selected/);
+  await expect(input).toHaveAttribute('data-keep-node','yes');
+  await expect(page.locator('.choice-custom-option + .choice-custom-editor')).toHaveCount(0);
+});
