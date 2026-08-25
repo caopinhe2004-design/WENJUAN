@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test('PWA 清单、图标、安装入口和离线启动可用', async ({ page, context }) => {
+test('PWA 清单、图标、刷新入口和离线启动可用', async ({ page, context }) => {
   await page.goto('/');
   await page.waitForFunction(() => !document.documentElement.classList.contains('app-booting'));
 
@@ -36,6 +36,10 @@ test('PWA 清单、图标、安装入口和离线启动可用', async ({ page, c
   const appleHref = await page.locator('link[rel="apple-touch-icon"]').getAttribute('href');
   expect(await loadImageSize(appleHref)).toEqual([180, 180]);
 
+  await expect(page.locator('[data-pwa-refresh]')).toHaveText('刷新');
+  await expect(page.locator('[data-pwa-refresh]')).toBeVisible();
+  expect(await page.evaluate(() => typeof window.couplePWA?.refresh)).toBe('function');
+
   await expect(page.locator('[data-pwa-install]')).toHaveText('把这一页留在桌面');
   await page.locator('[data-pwa-install]').click();
   await expect(page.locator('.pwa-guide')).toBeVisible();
@@ -51,10 +55,12 @@ test('PWA 清单、图标、安装入口和离线启动可用', async ({ page, c
   // Reload once so this page is controlled by the newly activated worker, then prove the shell opens offline.
   await page.reload();
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  await expect(page.locator('[data-pwa-refresh]')).toBeVisible();
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !document.documentElement.classList.contains('app-booting'));
   await expect(page).toHaveTitle('两个人的一页');
   await expect(page.locator('[data-open]')).toHaveCount(13);
+  await expect(page.locator('[data-pwa-refresh]')).toBeVisible();
   await context.setOffline(false);
 });
