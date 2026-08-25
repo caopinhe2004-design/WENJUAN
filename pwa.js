@@ -1,6 +1,6 @@
 // Installability, update checks, and an in-app refresh affordance for “两个人的一页”.
 (function(){
-  let deferredPrompt=null;
+  let deferredPrompt=window.__pwaInstallPrompt||null;
   let refreshing=false;
 
   function standalone(){
@@ -11,9 +11,8 @@
     return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   }
 
-  function isWeChat(){
-    return /micromessenger/i.test(navigator.userAgent);
-  }
+  function isAndroid(){return /android/i.test(navigator.userAgent)}
+  function isWeChat(){return /micromessenger/i.test(navigator.userAgent)}
 
   function cleanRefreshMarker(){
     try{
@@ -38,7 +37,7 @@
     const footer=app.querySelector('.footer-note');
     if(footer)footer.insertAdjacentElement('beforebegin',wrap);
     else app.appendChild(wrap);
-    wrap.querySelector('[data-pwa-install]')?.addEventListener('click',installOrGuide);
+    wrap.querySelector('[data-pwa-install]')?.addEventListener('click',showInstallPanel);
   }
 
   function injectRefresh(){
@@ -53,55 +52,88 @@
     document.body.appendChild(button);
   }
 
-  function closeGuide(){
-    document.querySelector('.pwa-guide-backdrop')?.remove();
+  function closeGuide(){document.querySelector('.pwa-guide-backdrop')?.remove()}
+
+  function installInfo(){
+    if(isWeChat())return {
+      lead:'微信里不能直接安装。',
+      steps:['点右上角菜单','选择“在浏览器打开”','再在系统浏览器菜单里选择“添加到主屏幕”或“安装应用”']
+    };
+    if(isIOS())return {
+      lead:'iPhone / iPad 需要从 Safari 添加。',
+      steps:['用 Safari 打开这一页','点底部或顶部的“分享”按钮','选择“添加到主屏幕”，再点“添加”']
+    };
+    if(isAndroid())return {
+      lead:deferredPrompt?'这个浏览器支持直接安装。':'如果没有系统安装弹窗，可以从浏览器菜单添加。',
+      steps:['点浏览器右上角菜单','选择“安装应用”或“添加到主屏幕”','确认后桌面会出现「两个人的一页」']
+    };
+    return {
+      lead:deferredPrompt?'这个浏览器支持直接安装。':'也可以从浏览器菜单把这一页添加到桌面。',
+      steps:['打开浏览器菜单','选择“安装应用”或“添加到主屏幕”','按提示确认']
+    };
   }
 
-  function guideCopy(){
-    if(isWeChat())return '先点右上角菜单，用系统浏览器打开这一页，再选择“添加到主屏幕”或“安装应用”。';
-    if(isIOS())return '在 Safari 里点分享按钮，再选择“添加到主屏幕”。以后从桌面点开，就不用再找网址了。';
-    return '打开浏览器菜单，选择“安装应用”或“添加到主屏幕”。以后从桌面点开，就能直接回到这里。';
+  function installPanelHTML(){
+    const info=installInfo();
+    const nativeButton=deferredPrompt?'<button type="button" class="pwa-install-native" data-pwa-native>立即安装</button>':'';
+    return `<section class="pwa-guide" role="dialog" aria-modal="true" aria-labelledby="pwa-guide-title">
+      <div class="pwa-guide-kicker">添加到手机桌面</div>
+      <h2 id="pwa-guide-title">把这一页留在桌面</h2>
+      <p class="pwa-guide-lead">${info.lead}</p>
+      <ol class="pwa-install-steps">${info.steps.map(step=>`<li>${step}</li>`).join('')}</ol>
+      <div class="pwa-guide-actions">${nativeButton}<button type="button" class="pwa-guide-close" data-pwa-close>知道了</button></div>
+    </section>`;
   }
 
-  function showGuide(){
+  function renderInstallPanel(){
+    const backdrop=document.querySelector('.pwa-guide-backdrop');
+    if(!backdrop)return;
+    backdrop.innerHTML=installPanelHTML();
+    backdrop.querySelector('[data-pwa-native]')?.addEventListener('click',runNativeInstall);
+    backdrop.querySelector('[data-pwa-close]')?.addEventListener('click',closeGuide);
+  }
+
+  function showInstallPanel(){
     closeGuide();
     const backdrop=document.createElement('div');
     backdrop.className='pwa-guide-backdrop';
-    backdrop.innerHTML=`<section class="pwa-guide" role="dialog" aria-modal="true" aria-labelledby="pwa-guide-title">
-      <h2 id="pwa-guide-title">把这一页留在桌面</h2>
-      <p>${guideCopy()}</p>
-      <div class="pwa-guide-actions"><button type="button" data-pwa-close>知道了</button></div>
-    </section>`;
+    backdrop.innerHTML=installPanelHTML();
     document.body.appendChild(backdrop);
-    backdrop.addEventListener('click',e=>{if(e.target===backdrop || e.target.closest('[data-pwa-close]'))closeGuide()});
-    backdrop.querySelector('[data-pwa-close]')?.focus();
+    backdrop.addEventListener('click',event=>{if(event.target===backdrop)closeGuide()});
+    backdrop.querySelector('[data-pwa-native]')?.addEventListener('click',runNativeInstall);
+    backdrop.querySelector('[data-pwa-close]')?.addEventListener('click',closeGuide);
+    (backdrop.querySelector('[data-pwa-native]')||backdrop.querySelector('[data-pwa-close]'))?.focus();
   }
 
-  async function installOrGuide(){
-    if(!deferredPrompt){showGuide();return}
+  async function runNativeInstall(){
     const prompt=deferredPrompt;
-    deferredPrompt=null;
+    if(!prompt){renderInstallPanel();return}
+    const button=document.querySelector('[data-pwa-native]');
+    if(button){button.disabled=true;button.textContent='正在打开安装…'}
     try{
       await prompt.prompt();
       const choice=await prompt.userChoice;
-      if(choice?.outcome==='accepted')removeInstall();
-      else injectInstall();
+      deferredPrompt=null;
+      window.__pwaInstallPrompt=null;
+      if(choice?.outcome==='accepted'){
+        closeGuide();
+        removeInstall();
+      }else{
+        renderInstallPanel();
+      }
     }catch{
-      injectInstall();
-      showGuide();
+      deferredPrompt=null;
+      window.__pwaInstallPrompt=null;
+      renderInstallPanel();
     }
   }
 
   async function updateWorker(){
     if(!('serviceWorker' in navigator))return null;
     let registration=await navigator.serviceWorker.getRegistration('./');
-    if(!registration){
-      registration=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
-    }
+    if(!registration){registration=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'})}
     try{await registration.update()}catch{}
-    if(registration.waiting){
-      try{registration.waiting.postMessage('SKIP_WAITING')}catch{}
-    }
+    if(registration.waiting){try{registration.waiting.postMessage('SKIP_WAITING')}catch{}}
     return registration;
   }
 
@@ -116,9 +148,7 @@
       const url=new URL(location.href);
       url.searchParams.set('_refresh',String(Date.now()));
       location.replace(url.toString());
-    }catch{
-      location.reload();
-    }
+    }catch{location.reload()}
   }
 
   function checkForUpdate(){
@@ -129,17 +159,20 @@
   window.addEventListener('beforeinstallprompt',event=>{
     event.preventDefault();
     deferredPrompt=event;
+    window.__pwaInstallPrompt=event;
+    if(document.querySelector('.pwa-guide-backdrop'))renderInstallPanel();
     injectInstall();
   });
+
   window.addEventListener('appinstalled',()=>{
     deferredPrompt=null;
+    window.__pwaInstallPrompt=null;
+    closeGuide();
     removeInstall();
   });
 
   if('serviceWorker' in navigator){
-    window.addEventListener('load',()=>updateWorker().catch(error=>{
-      console.warn('PWA service worker registration failed',error);
-    }));
+    window.addEventListener('load',()=>updateWorker().catch(error=>console.warn('PWA service worker registration failed',error)));
     document.addEventListener('visibilitychange',checkForUpdate);
     window.addEventListener('pageshow',checkForUpdate);
   }
@@ -157,5 +190,5 @@
   injectRefresh();
   if(typeof route!=='undefined' && route.view==='home')injectInstall();
 
-  window.couplePWA={standalone,showGuide,injectInstall,refresh:refreshApp,checkForUpdate};
+  window.couplePWA={standalone,showGuide:showInstallPanel,showInstall:showInstallPanel,injectInstall,refresh:refreshApp,checkForUpdate};
 })();
