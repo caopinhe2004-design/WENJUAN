@@ -22,29 +22,19 @@ test('PWA 清单、图标、安装入口和离线启动可用', async ({ page, c
   expect(manifest.display).toBe('standalone');
   expect(manifest.icons.map(x => x.sizes)).toEqual(expect.arrayContaining(['192x192', '512x512']));
 
-  const dimensions = await page.evaluate(async icons => {
-    const out = [];
-    for (const icon of icons) {
-      const response = await fetch(icon.src);
-      if (!response.ok) throw new Error(`${icon.src} ${response.status}`);
-      const blob = await response.blob();
-      const bitmap = await createImageBitmap(blob);
-      out.push([bitmap.width, bitmap.height]);
-      bitmap.close();
-    }
-    return out;
-  }, manifest.icons);
+  const loadImageSize = async src => page.evaluate(url => new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve([image.naturalWidth, image.naturalHeight]);
+    image.onerror = () => reject(new Error(`image decode failed: ${url}`));
+    image.src = url;
+  }), src);
+
+  const dimensions = [];
+  for (const icon of manifest.icons) dimensions.push(await loadImageSize(icon.src));
   expect(dimensions).toEqual(expect.arrayContaining([[192, 192], [512, 512]]));
 
-  const appleSize = await page.evaluate(async () => {
-    const href = document.querySelector('link[rel="apple-touch-icon"]').href;
-    const response = await fetch(href);
-    const bitmap = await createImageBitmap(await response.blob());
-    const size = [bitmap.width, bitmap.height];
-    bitmap.close();
-    return size;
-  });
-  expect(appleSize).toEqual([180, 180]);
+  const appleHref = await page.locator('link[rel="apple-touch-icon"]').getAttribute('href');
+  expect(await loadImageSize(appleHref)).toEqual([180, 180]);
 
   await expect(page.locator('[data-pwa-install]')).toHaveText('把这一页留在桌面');
   await page.locator('[data-pwa-install]').click();
