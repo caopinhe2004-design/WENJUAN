@@ -23,6 +23,7 @@ test('首页使用无时段限制的文学化文案，不显示数量标签', as
 
   await expect(page.locator('[data-open="either"] p')).toContainText('悄悄照见两个人的日常');
   await expect(page.locator('[data-open="food"] p')).toContainText('从一桌家常饭开始');
+  await expect(page.locator('[data-open="talk"] h3')).toHaveText('慢慢真心话');
   await expect(page.locator('.progress-note').first()).toHaveText('还没翻开');
   await expect(page.locator('body')).not.toContainText(/今晚|睡前|夜深|夜里|夜晚/);
 
