@@ -1,6 +1,7 @@
-// Installability and a quiet, home-only install affordance for “两个人的一页”.
+// Installability, update checks, and an in-app refresh affordance for “两个人的一页”.
 (function(){
   let deferredPrompt=null;
+  let refreshing=false;
 
   function standalone(){
     return !!(window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone===true);
@@ -12,6 +13,15 @@
 
   function isWeChat(){
     return /micromessenger/i.test(navigator.userAgent);
+  }
+
+  function cleanRefreshMarker(){
+    try{
+      const url=new URL(location.href);
+      if(!url.searchParams.has('_refresh'))return;
+      url.searchParams.delete('_refresh');
+      history.replaceState(history.state,'',url.pathname+(url.searchParams.size?`?${url.searchParams}`:'')+url.hash);
+    }catch{}
   }
 
   function removeInstall(){
@@ -29,6 +39,18 @@
     if(footer)footer.insertAdjacentElement('beforebegin',wrap);
     else app.appendChild(wrap);
     wrap.querySelector('[data-pwa-install]')?.addEventListener('click',installOrGuide);
+  }
+
+  function injectRefresh(){
+    document.querySelector('[data-pwa-refresh]')?.remove();
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='pwa-refresh-btn';
+    button.dataset.pwaRefresh='1';
+    button.textContent='刷新';
+    button.setAttribute('aria-label','刷新到最新版本');
+    button.addEventListener('click',refreshApp);
+    document.body.appendChild(button);
   }
 
   function closeGuide(){
@@ -70,6 +92,40 @@
     }
   }
 
+  async function updateWorker(){
+    if(!('serviceWorker' in navigator))return null;
+    let registration=await navigator.serviceWorker.getRegistration('./');
+    if(!registration){
+      registration=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
+    }
+    try{await registration.update()}catch{}
+    if(registration.waiting){
+      try{registration.waiting.postMessage('SKIP_WAITING')}catch{}
+    }
+    return registration;
+  }
+
+  async function refreshApp(){
+    if(refreshing)return;
+    refreshing=true;
+    const button=document.querySelector('[data-pwa-refresh]');
+    if(button){button.disabled=true;button.textContent='刷新中…'}
+    try{
+      if(typeof duoRoomStoreSave==='function')duoRoomStoreSave();
+      await updateWorker();
+      const url=new URL(location.href);
+      url.searchParams.set('_refresh',String(Date.now()));
+      location.replace(url.toString());
+    }catch{
+      location.reload();
+    }
+  }
+
+  function checkForUpdate(){
+    if(document.visibilityState!=='visible')return;
+    updateWorker().catch(()=>{});
+  }
+
   window.addEventListener('beforeinstallprompt',event=>{
     event.preventDefault();
     deferredPrompt=event;
@@ -81,14 +137,11 @@
   });
 
   if('serviceWorker' in navigator){
-    window.addEventListener('load',async()=>{
-      try{
-        const registration=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
-        registration.update().catch(()=>{});
-      }catch(error){
-        console.warn('PWA service worker registration failed',error);
-      }
-    });
+    window.addEventListener('load',()=>updateWorker().catch(error=>{
+      console.warn('PWA service worker registration failed',error);
+    }));
+    document.addEventListener('visibilitychange',checkForUpdate);
+    window.addEventListener('pageshow',checkForUpdate);
   }
 
   if(typeof home==='function'){
@@ -100,7 +153,9 @@
     };
   }
 
+  cleanRefreshMarker();
+  injectRefresh();
   if(typeof route!=='undefined' && route.view==='home')injectInstall();
 
-  window.couplePWA={standalone,showGuide,injectInstall};
+  window.couplePWA={standalone,showGuide,injectInstall,refresh:refreshApp,checkForUpdate};
 })();
