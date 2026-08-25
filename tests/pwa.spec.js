@@ -2,7 +2,6 @@ const { test, expect } = require('@playwright/test');
 
 async function boot(page){
   await page.goto('/');
-  await page.waitForFunction(() => !document.documentElement.classList.contains('app-booting'));
   await expect(page.locator('[data-open]')).toHaveCount(13);
 }
 
@@ -12,7 +11,7 @@ async function openSettings(page){
   await expect(page.locator('.settings-panel')).toBeVisible();
 }
 
-test('PWA 图标、启动图、设置入口和离线启动可用', async ({ page, context }) => {
+test('PWA 图标、直接首页、设置入口和离线启动可用', async ({ page, context }) => {
   await boot(page);
 
   const manifest = await page.evaluate(async () => {
@@ -34,18 +33,16 @@ test('PWA 图标、启动图、设置入口和离线启动可用', async ({ page
   expect(await loadImageSize('icons/icon-192-v3.png')).toEqual([192,192]);
   expect(await loadImageSize('icons/icon-512-v3.png')).toEqual([512,512]);
   expect(await loadImageSize('icons/apple-touch-icon.png')).toEqual([180,180]);
-  const launchSize=await loadImageSize('assets/launch-v2.webp?v=20260825-pwa12');
-  expect(launchSize[0]).toBeGreaterThan(0);
-  expect(launchSize[1]).toBeGreaterThan(0);
   await expect(page.locator('link[rel="apple-touch-icon"][href="icons/apple-touch-icon.png"]')).toHaveCount(1);
+  await expect(page.locator('#app-splash')).toHaveCount(0);
 
   const indexSource = await page.evaluate(async()=>{
     const r=await fetch('index.html',{cache:'no-store'});
     return r.text();
   });
-  expect(indexSource).toContain('assets/launch-v2.webp?v=20260825-pwa12');
-  expect(indexSource).toContain("icons/icon-512-v3.png?v=20260825-pwa12");
-  await expect(page.locator('link[rel="preload"][href="assets/launch-v2.webp?v=20260825-pwa12"]')).toHaveCount(1);
+  expect(indexSource).not.toContain('app-splash');
+  expect(indexSource).not.toContain('launch-v2.webp');
+  expect(indexSource).not.toContain('app-booting');
 
   await expect(page.locator('[data-settings-open]')).toBeVisible();
   await expect(page.locator('.history-corner-btn')).toBeHidden();
@@ -64,10 +61,10 @@ test('PWA 图标、启动图、设置入口和离线启动可用', async ({ page
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
   await context.setOffline(true);
   await page.reload({waitUntil:'domcontentloaded'});
-  await page.waitForFunction(() => !document.documentElement.classList.contains('app-booting'));
   await expect(page).toHaveTitle('两个人的一页');
   await expect(page.locator('[data-open]')).toHaveCount(13);
   await expect(page.locator('[data-settings-open]')).toBeVisible();
+  await expect(page.locator('#app-splash')).toHaveCount(0);
   await context.setOffline(false);
 });
 
