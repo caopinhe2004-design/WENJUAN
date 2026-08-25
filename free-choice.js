@@ -38,6 +38,10 @@
     else if(typeof val==='number')OPEN_CUSTOM.delete(stateKey);
 
     const opened=OPEN_CUSTOM.has(stateKey);
+    // Preset answers and the custom editor are one single-choice group.
+    // When custom mode is active, clear any stale preset highlight left in the current DOM.
+    if(opened)options.querySelectorAll('[data-opt].selected').forEach(el=>el.classList.remove('selected'));
+
     const existing=options.querySelector('.choice-custom-option');
     if(existing?.dataset.customKey===stateKey){
       const input=existing.querySelector('input');
@@ -65,6 +69,9 @@
           delete state.answers[k];
           save();
         }
+        // Clear the visible preset selection immediately; decorateChoice intentionally
+        // preserves the existing question DOM so typing is never interrupted by duo refreshes.
+        options.querySelectorAll('[data-opt].selected').forEach(el=>el.classList.remove('selected'));
         OPEN_CUSTOM.add(stateKey);
         decorateChoice();
         requestAnimationFrame(()=>app.querySelector('.choice-custom-editor input')?.focus());
@@ -84,6 +91,7 @@
       if(input.value!==raw)input.value=raw;
       if(text)state.answers[k]={kind:CUSTOM_KIND,text:raw};
       else delete state.answers[k];
+      options.querySelectorAll('[data-opt].selected').forEach(el=>el.classList.remove('selected'));
       custom.classList.add('selected');
       save();
     };
