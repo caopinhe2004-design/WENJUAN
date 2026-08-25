@@ -1,5 +1,5 @@
 const CACHE_PREFIX='two-people-one-page-';
-const CACHE_NAME=CACHE_PREFIX+'20260825-12';
+const CACHE_NAME=CACHE_PREFIX+'20260825-13';
 
 function localAsset(value){
   if(!value || value.startsWith('data:') || value.startsWith('#') || value.startsWith('mailto:') || value.startsWith('tel:'))return null;
@@ -16,7 +16,6 @@ async function precache(){
   const urls=new Set([
     root,indexURL,
     new URL('manifest.webmanifest',root).href,
-    new URL('assets/launch-v2.webp?v=20260825-pwa12',root).href,
     new URL('icons/apple-touch-icon.png',root).href,
     new URL('icons/icon-192-v3.png',root).href,
     new URL('icons/icon-512-v3.png',root).href
