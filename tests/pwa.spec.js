@@ -33,7 +33,8 @@ test('PWA 新图标、启动页、设置入口和离线启动可用', async ({ p
 
   expect(await loadImageSize('icons/icon-192-v3.png')).toEqual([192,192]);
   expect(await loadImageSize('icons/icon-512-v3.png')).toEqual([512,512]);
-  expect(await loadImageSize('icons/apple-touch-icon-v3.png')).toEqual([180,180]);
+  expect(await loadImageSize('icons/apple-touch-icon.png')).toEqual([180,180]);
+  await expect(page.locator('link[rel="apple-touch-icon"][href="icons/apple-touch-icon.png"]')).toHaveCount(1);
 
   const indexSource = await page.evaluate(async()=>{
     const r=await fetch('index.html',{cache:'no-store'});
