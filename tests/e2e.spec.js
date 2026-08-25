@@ -175,8 +175,11 @@ test('历史记录显示具体轮次并可导出本轮和整套 Word', async ({ 
     home();
   });
 
-  await expect(page.locator('[data-history-corner]')).toBeVisible();
-  await page.locator('[data-history-corner]').click();
+  await expect(page.locator('[data-settings-open]')).toBeVisible();
+  await expect(page.locator('[data-history-corner]')).toBeHidden();
+  await page.locator('[data-settings-open]').click();
+  await expect(page.locator('.settings-panel')).toBeVisible();
+  await page.locator('[data-settings-history]').click();
   await expect(page.locator('[data-history-group="either"]')).toContainText('已完成 4/4 轮');
   await expect(page.locator('[data-history-group="either"]')).toContainText('甲的答案 1');
   await expect(page.locator('[data-history-group="either"]')).toContainText('乙的答案 1');
