@@ -18,6 +18,32 @@
   -webkit-tap-highlight-color:transparent;
 }
 .pwa-save-btn:active{transform:translateY(1px)}
+.pwa-refresh-btn{
+  position:fixed;
+  top:calc(13px + env(safe-area-inset-top));
+  right:max(14px,calc((100vw - 1040px)/2 + 14px));
+  z-index:26;
+  appearance:none;
+  min-height:34px;
+  padding:7px 11px;
+  border:1px solid rgba(220,205,198,.78);
+  border-radius:999px;
+  background:rgba(255,252,250,.9);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  box-shadow:0 7px 24px rgba(76,57,50,.07);
+  color:#665850;
+  font:inherit;
+  font-size:12px;
+  font-weight:750;
+  line-height:1;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.pwa-refresh-btn:active{transform:scale(.98)}
+.pwa-refresh-btn:disabled{opacity:.62;cursor:default;transform:none}
+/* Keep the home history pill beside the refresh control instead of underneath it. */
+.history-corner-btn{right:max(76px,calc((100vw - 1040px)/2 + 76px))}
 .pwa-guide-backdrop{
   position:fixed;
   inset:0;
@@ -68,8 +94,10 @@
 @media (max-width:560px){
   .pwa-save{margin:22px 0 8px}
   .pwa-save-btn{font-size:13px;padding:10px 15px}
+  .pwa-refresh-btn{top:calc(10px + env(safe-area-inset-top));right:10px;min-height:32px;padding:7px 9px;font-size:11px}
+  .history-corner-btn{right:67px}
   .pwa-guide{border-radius:22px;padding:22px 20px}
 }
 @media (prefers-reduced-motion:reduce){
-  .pwa-save-btn:active{transform:none}
+  .pwa-save-btn:active,.pwa-refresh-btn:active{transform:none}
 }
