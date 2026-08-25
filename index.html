@@ -16,6 +16,11 @@
   </style>
   <script>
     window.__coupleQuizBootFallback=setTimeout(function(){document.documentElement.classList.remove('app-booting')},2200);
+    window.__pwaInstallPrompt=null;
+    window.addEventListener('beforeinstallprompt',function(event){
+      event.preventDefault();
+      window.__pwaInstallPrompt=event;
+    });
   </script>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="single-results.css">
@@ -32,7 +37,7 @@
   <link rel="stylesheet" href="food-ui.css?v=20260824-2042">
   <link rel="stylesheet" href="free-choice.css?v=20260824-2054">
   <link rel="stylesheet" href="history-word.css?v=20260824-2138">
-  <link rel="stylesheet" href="pwa.css?v=20260825-1252">
+  <link rel="stylesheet" href="pwa.css?v=20260825-1553">
   <link rel="stylesheet" href="room-code.css?v=20260825-1252">
 </head>
 <body>
@@ -83,7 +88,7 @@
   <script src="home-atmosphere.js?v=20260825-1056"></script>
   <script src="either-title.js?v=20260824-2313"></script>
   <script src="site-copy.js?v=20260825-1108"></script>
-  <script src="pwa.js?v=20260825-1252"></script>
+  <script src="pwa.js?v=20260825-1553"></script>
   <script src="room-code.js?v=20260825-1252"></script>
   <script>
     (function(){
