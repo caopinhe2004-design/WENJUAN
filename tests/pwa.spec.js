@@ -22,7 +22,7 @@ test('PWA 新图标、启动页、设置入口和离线启动可用', async ({ p
   });
   expect(manifest.name).toBe('两个人的一页');
   expect(manifest.icons.map(x => x.sizes)).toEqual(expect.arrayContaining(['192x192','512x512']));
-  expect(manifest.icons.map(x => x.src)).toEqual(expect.arrayContaining(['icons/icon-192-v2.png','icons/icon-512-v2.webp']));
+  expect(manifest.icons.map(x => x.src)).toEqual(expect.arrayContaining(['icons/icon-192-v3.png','icons/icon-512-v3.png']));
 
   const loadImageSize = async src => page.evaluate(url => new Promise((resolve,reject)=>{
     const image=new Image();
@@ -31,19 +31,19 @@ test('PWA 新图标、启动页、设置入口和离线启动可用', async ({ p
     image.src=url;
   }),src);
 
-  expect(await loadImageSize('icons/icon-192-v2.png')).toEqual([192,192]);
-  expect(await loadImageSize('icons/icon-512-v2.webp')).toEqual([512,512]);
-  expect(await loadImageSize('icons/apple-touch-icon-v2.png')).toEqual([180,180]);
+  expect(await loadImageSize('icons/icon-192-v3.png')).toEqual([192,192]);
+  expect(await loadImageSize('icons/icon-512-v3.png')).toEqual([512,512]);
+  expect(await loadImageSize('icons/apple-touch-icon-v3.png')).toEqual([180,180]);
 
-  const launch = await page.evaluate(async()=>{
-    const r=await fetch('assets/launch-v2.webp');
-    const blob=await r.blob();
-    return {ok:r.ok,type:r.headers.get('content-type'),size:blob.size};
+  const indexSource = await page.evaluate(async()=>{
+    const r=await fetch('index.html',{cache:'no-store'});
+    return r.text();
   });
-  expect(launch.ok).toBe(true);
-  expect(launch.type).toContain('image/webp');
-  expect(launch.size).toBeGreaterThan(3000);
-  await expect(page.locator('link[rel="preload"][href="assets/launch-v2.webp"]')).toHaveCount(1);
+  expect(indexSource).toContain('class="splash-title">两个人的一页');
+  expect(indexSource).toContain('把那些没来得及说的小事，慢慢说给彼此听');
+  expect(indexSource).toContain('icons/icon-512-v3.png');
+  expect(indexSource).not.toContain('launch-v2.webp');
+  await expect(page.locator('link[rel="preload"][href="icons/icon-512-v3.png"]')).toHaveCount(1);
 
   await expect(page.locator('[data-settings-open]')).toBeVisible();
   await expect(page.locator('.history-corner-btn')).toBeHidden();

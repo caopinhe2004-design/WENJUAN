@@ -1,5 +1,5 @@
 const CACHE_PREFIX='two-people-one-page-';
-const CACHE_NAME=CACHE_PREFIX+'20260825-7';
+const CACHE_NAME=CACHE_PREFIX+'20260825-8';
 
 function localAsset(value){
   if(!value || value.startsWith('data:') || value.startsWith('#') || value.startsWith('mailto:') || value.startsWith('tel:'))return null;
@@ -13,7 +13,13 @@ async function precache(){
   const cache=await caches.open(CACHE_NAME);
   const root=new URL('./',self.registration.scope).href;
   const indexURL=new URL('index.html',root).href;
-  const urls=new Set([root,indexURL,new URL('manifest.webmanifest',root).href]);
+  const urls=new Set([
+    root,indexURL,
+    new URL('manifest.webmanifest',root).href,
+    new URL('icons/apple-touch-icon-v3.png',root).href,
+    new URL('icons/icon-192-v3.png',root).href,
+    new URL('icons/icon-512-v3.png',root).href
+  ]);
   try{
     const response=await fetch(indexURL,{cache:'reload'});
     if(response.ok){
