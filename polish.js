@@ -38,11 +38,11 @@ function polishMetaCards(){
 function polishHome(){
   if(route.view!=='home')return;
   const hero=app.querySelector('.hero');if(!hero)return;
-  hero.querySelector('h1').textContent='今晚玩哪个？';
-  const p=hero.querySelector('p');if(p)p.textContent='随便挑一个，或者让它帮你们选。别当问卷做，就当睡前玩几分钟。';
+  hero.querySelector('h1').textContent='想从哪一页开始？';
+  const p=hero.querySelector('p');if(p)p.textContent='随手挑一个，或者让它替你们选。别当问卷做，就当一起停下来聊几分钟。';
   app.querySelector('.play-picker')?.remove();
   const picker=document.createElement('section');picker.className='play-picker';
-  picker.innerHTML=`<div class="play-picker-copy"><span>不知道玩什么？</span><b>按今晚的状态来</b></div><div class="play-picker-actions"><button data-pick="easy">轻松一点</button><button data-pick="talk">聊点真的</button><button data-pick="wild">随便脑洞</button><button class="surprise" data-pick="all">帮我挑一个</button></div>`;
+  picker.innerHTML=`<div class="play-picker-copy"><span>不知道从哪儿开始？</span><b>按此刻的心情来</b></div><div class="play-picker-actions"><button data-pick="easy">轻松一点</button><button data-pick="talk">聊点真的</button><button data-pick="wild">随便脑洞</button><button class="surprise" data-pick="all">帮我挑一个</button></div>`;
   const anchor=app.querySelector('.duo-panel')||hero;anchor.insertAdjacentElement('afterend',picker);
   picker.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>polishPick(b.dataset.pick==='all'?QUIZZES.map(q=>q.id):POLISH_POOLS[b.dataset.pick]||[]));
   polishMetaCards();
@@ -50,7 +50,7 @@ function polishHome(){
 async function polishShareInvite(){
   const url=duoInviteURL();
   if(navigator.share){
-    try{await navigator.share({title:'今晚一起玩这个',text:'来，睡前一起玩几分钟。',url});return}catch(e){if(e?.name==='AbortError')return}
+    try{await navigator.share({title:'两个人的一页',text:'来，和我一起翻一页。',url});return}catch(e){if(e?.name==='AbortError')return}
   }
   await duoCopyInvite();
 }
@@ -113,7 +113,7 @@ function polishResult(q){
   if(q.type==='choice'){big=`${same} / ${both||q.questions.length}`;label='题选到了一起'}
   else if(q.type==='scale'){big=`${same}`;label='题打了同样的分'}
   else if(q.type==='rank'){big=`${same}`;label='组顺序完全一样'}
-  const hero=document.createElement('div');hero.className='duo-result-hero';hero.innerHTML=`<span>今晚这一套</span><strong>${big}</strong><b>${label}</b>`;
+  const hero=document.createElement('div');hero.className='duo-result-hero';hero.innerHTML=`<span>这一套</span><strong>${big}</strong><b>${label}</b>`;
   const box=result.querySelector('.duo-result-box');(box||result.querySelector('.full-summary'))?.insertAdjacentElement('beforebegin',hero);
   if(box){const left=q.questions.length-(typeof duoNavDoneCount==='function'?duoNavDoneCount(q,remote):duoProgress(q,remote.answers));box.textContent=left<=0?`${polishPartner()} 也答完了`: `${polishPartner()} 还差 ${left} 题`}
   result.querySelectorAll('.duo-result-answers em').forEach(e=>e.textContent='撞上');
