@@ -8,6 +8,9 @@ async function boot(page){
 async function openEither(page){
   await boot(page);
   await page.locator('[data-open="either"]').click();
+  const chooser=page.locator('.session-mode-backdrop');
+  await expect(chooser).toBeVisible();
+  await chooser.locator('[data-part="1"]').click();
   await expect(page.locator('.question-card')).toBeVisible();
 }
 
