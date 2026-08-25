@@ -12,7 +12,7 @@ async function openSettings(page){
   await expect(page.locator('.settings-panel')).toBeVisible();
 }
 
-test('PWA 新图标、启动页、设置入口和离线启动可用', async ({ page, context }) => {
+test('PWA 图标、启动图、设置入口和离线启动可用', async ({ page, context }) => {
   await boot(page);
 
   const manifest = await page.evaluate(async () => {
@@ -34,17 +34,18 @@ test('PWA 新图标、启动页、设置入口和离线启动可用', async ({ p
   expect(await loadImageSize('icons/icon-192-v3.png')).toEqual([192,192]);
   expect(await loadImageSize('icons/icon-512-v3.png')).toEqual([512,512]);
   expect(await loadImageSize('icons/apple-touch-icon.png')).toEqual([180,180]);
+  const launchSize=await loadImageSize('assets/launch-v2.webp?v=20260825-pwa12');
+  expect(launchSize[0]).toBeGreaterThan(0);
+  expect(launchSize[1]).toBeGreaterThan(0);
   await expect(page.locator('link[rel="apple-touch-icon"][href="icons/apple-touch-icon.png"]')).toHaveCount(1);
 
   const indexSource = await page.evaluate(async()=>{
     const r=await fetch('index.html',{cache:'no-store'});
     return r.text();
   });
-  expect(indexSource).toContain('class="splash-title">两个人的一页');
-  expect(indexSource).toContain('把那些没来得及说的小事，慢慢说给彼此听');
-  expect(indexSource).toContain('icons/icon-512-v3.png');
-  expect(indexSource).not.toContain('launch-v2.webp');
-  await expect(page.locator('link[rel="preload"][href="icons/icon-512-v3.png"]')).toHaveCount(1);
+  expect(indexSource).toContain('assets/launch-v2.webp?v=20260825-pwa12');
+  expect(indexSource).toContain("icons/icon-512-v3.png?v=20260825-pwa12");
+  await expect(page.locator('link[rel="preload"][href="assets/launch-v2.webp?v=20260825-pwa12"]')).toHaveCount(1);
 
   await expect(page.locator('[data-settings-open]')).toBeVisible();
   await expect(page.locator('.history-corner-btn')).toBeHidden();
@@ -90,6 +91,7 @@ test('安卓安装从设置里打开，并承接原生安装事件', async ({ br
   await openSettings(page);
   await page.locator('[data-settings-install]').click();
   await expect(page.locator('.pwa-guide')).toContainText('浏览器菜单');
+  await expect(page.locator('.pwa-guide')).toContainText('安装应用');
   await page.locator('[data-pwa-close]').click();
 
   await page.evaluate(()=>{
@@ -104,7 +106,7 @@ test('安卓安装从设置里打开，并承接原生安装事件', async ({ br
   await context.close();
 });
 
-test('iPhone 从设置打开安装说明，明确提示 Safari 分享菜单', async ({ browser }) => {
+test('iPhone 安装说明明确提示 Safari 底部分享按钮', async ({ browser }) => {
   const context=await browser.newContext({
     viewport:{width:390,height:844},isMobile:true,
     userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'
@@ -113,7 +115,39 @@ test('iPhone 从设置打开安装说明，明确提示 Safari 分享菜单', as
   await openSettings(page);
   await page.locator('[data-settings-install]').click();
   await expect(page.locator('.pwa-guide')).toContainText('Safari');
-  await expect(page.locator('.pwa-guide')).toContainText('分享');
+  await expect(page.locator('.pwa-guide')).toContainText('底部');
   await expect(page.locator('.pwa-guide')).toContainText('添加到主屏幕');
+  await expect(page.locator('.pwa-guide')).toContainText('右上角“添加”');
+  await context.close();
+});
+
+test('iPadOS 桌面模式安装说明指向 Safari 顶部工具栏', async ({ browser }) => {
+  const context=await browser.newContext({
+    viewport:{width:1024,height:768},
+    userAgent:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15'
+  });
+  await context.addInitScript(()=>{
+    Object.defineProperty(navigator,'platform',{get:()=> 'MacIntel'});
+    Object.defineProperty(navigator,'maxTouchPoints',{get:()=>5});
+  });
+  const page=await context.newPage();await boot(page);
+  await openSettings(page);
+  await page.locator('[data-settings-install]').click();
+  await expect(page.locator('.pwa-guide')).toContainText('iPad');
+  await expect(page.locator('.pwa-guide')).toContainText('顶部工具栏');
+  await expect(page.locator('.pwa-guide')).toContainText('添加到主屏幕');
+  await context.close();
+});
+
+test('微信内置浏览器提示先切换系统浏览器', async ({ browser }) => {
+  const context=await browser.newContext({
+    viewport:{width:390,height:844},isMobile:true,
+    userAgent:'Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 Chrome/151.0.0.0 Mobile Safari/537.36 MicroMessenger/8.0.60'
+  });
+  const page=await context.newPage();await boot(page);
+  await openSettings(page);
+  await page.locator('[data-settings-install]').click();
+  await expect(page.locator('.pwa-guide')).toContainText('当前浏览器不能直接安装');
+  await expect(page.locator('.pwa-guide')).toContainText('在浏览器打开');
   await context.close();
 });
