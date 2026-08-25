@@ -1,0 +1,75 @@
+.pwa-save{
+  display:flex;
+  justify-content:center;
+  margin:26px 0 10px;
+}
+.pwa-save-btn{
+  appearance:none;
+  border:1px solid rgba(121,99,90,.18);
+  background:rgba(255,255,255,.52);
+  color:#765f57;
+  border-radius:999px;
+  padding:11px 17px;
+  font:inherit;
+  font-size:14px;
+  line-height:1;
+  box-shadow:0 8px 26px rgba(97,74,66,.06);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.pwa-save-btn:active{transform:translateY(1px)}
+.pwa-guide-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:10040;
+  display:grid;
+  place-items:center;
+  padding:22px;
+  background:rgba(62,48,43,.24);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.pwa-guide{
+  width:min(420px,100%);
+  border:1px solid rgba(121,99,90,.14);
+  border-radius:24px;
+  background:rgba(252,248,245,.97);
+  box-shadow:0 24px 70px rgba(79,58,50,.16);
+  padding:24px;
+  color:#5e4c45;
+}
+.pwa-guide h2{
+  margin:0 0 10px;
+  font-size:21px;
+  font-weight:700;
+  letter-spacing:.01em;
+}
+.pwa-guide p{
+  margin:0;
+  color:#857169;
+  font-size:14px;
+  line-height:1.75;
+}
+.pwa-guide-actions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:20px;
+}
+.pwa-guide-actions button{
+  appearance:none;
+  border:0;
+  border-radius:999px;
+  padding:10px 16px;
+  background:#7f6960;
+  color:#fff;
+  font:inherit;
+  cursor:pointer;
+}
+@media (max-width:560px){
+  .pwa-save{margin:22px 0 8px}
+  .pwa-save-btn{font-size:13px;padding:10px 15px}
+  .pwa-guide{border-radius:22px;padding:22px 20px}
+}
+@media (prefers-reduced-motion:reduce){
+  .pwa-save-btn:active{transform:none}
+}
