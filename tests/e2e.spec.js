@@ -95,7 +95,7 @@ test('手机和 iPad 视口可以完成饮食题', async ({ browser }) => {
   }
 });
 
-test('双客户端只同步已确认答案、离线后回来继续同步', async ({ browser }) => {
+test('双客户端显示编辑状态但只同步已确认答案，离线后回来继续同步', async ({ browser }) => {
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();
@@ -118,15 +118,15 @@ test('双客户端只同步已确认答案、离线后回来继续同步', async
   await pageB.getByRole('button', { name: /自己写一个/ }).click();
   await pageB.locator('.choice-custom-editor input').fill('我有自己的答案');
 
-  // Drafts are fully local: before confirmation the peer receives neither
-  // the draft content nor an "editing"/pending marker.
-  await pageA.waitForTimeout(800);
+  await pageA.waitForFunction(() => duoRemoteState()?.pendingKey === 'either:0', null, { timeout: 15000 });
   const beforeConfirm = await pageA.evaluate(() => {
     const r = duoRemoteState();
-    return { answer: r?.answers?.['either:0'], pendingKey: r?.pendingKey };
+    return { answer: r?.answers?.['either:0'], pendingKey: r?.pendingKey, raw: JSON.stringify(r || {}) };
   });
   expect(beforeConfirm.answer).toBeUndefined();
-  expect(beforeConfirm.pendingKey).toBeUndefined();
+  expect(beforeConfirm.pendingKey).toBe('either:0');
+  expect(beforeConfirm.raw).not.toContain('我有自己的答案');
+  await expect(pageA.locator('.duo-answer-pill').filter({ hasText: '乙' })).toContainText('正在编辑');
   await expect(pageA.locator('.duo-reveal')).toHaveCount(0);
 
   await pageB.locator('[data-custom-confirm]').click();
