@@ -4,10 +4,10 @@ const root=path.resolve(__dirname,'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const write=(p,s)=>{const f=path.join(root,p);fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,s)};
 const remove=p=>{const f=path.join(root,p);if(fs.existsSync(f))fs.unlinkSync(f)};
-const section=(title,p,transform=x=>x)=>`\n/* ==========================================================================\n   ${title}\n   Source consolidated from ${p}\n   ========================================================================== */\n${transform(read(p)).trim()}\n`;
+const section=(title,p,transform=x=>x)=>`\n/* ==========================================================================\n   ${title}\n   Consolidated from ${p}\n   ========================================================================== */\n${transform(read(p)).trim()}\n`;
 const mustReplace=(src,from,to,label)=>{if(!src.includes(from))throw new Error(`Missing refactor pattern: ${label}`);return src.replaceAll(from,to)};
 
-// 1) Base application: bake canonical names/copy into the source of truth.
+// Base application: bake canonical names/copy into the source of truth.
 let app=read('js/core/app.js');
 app=mustReplace(app,"title:'默契二选一',desc:'同时作答，看今晚有多同频'","title:'生活里的小选择',desc:'一些很小的选择，也会悄悄照见两个人的日常。'",'either title');
 app=mustReplace(app,"rule:'每题二选一。答完把 JSON 发给对方或 ChatGPT 比较。'","rule:'选最接近自己的答案；没有合适的，就写下自己的想法。'",'either rule');
@@ -17,7 +17,7 @@ app=app.replaceAll('答案仅保存在本机','当前进度保存在本机');
 app=app.replaceAll('不登录 · 不上传答案 · 刷新也不会丢','当前进度本机保存 · 完成记录可上传云端');
 write('js/core/app.js',app);
 
-// 2) Duo owns MQTT, encryption, realtime navigation, presence and room codes.
+// Duo: MQTT + encrypted room + navigation runtime + presence + room codes.
 const duoParts=[
   ['MQTT transport','js/core/mqtt-lite.js'],
   ['Encrypted duo room','js/core/duo.js'],
@@ -25,11 +25,11 @@ const duoParts=[
   ['Relaxed presence policy','js/core/presence-relaxed.js'],
   ['Human-friendly room codes','js/core/room-code.js']
 ];
-let duo=`// Canonical dual-room module. Modify this file directly; do not add duo patch files.\n`;
+let duo='// Canonical dual-room module. Modify this file directly; do not add duo patch files.\n';
 for(const [title,p] of duoParts)duo+=section(title,p);
 write('js/core/duo.js',duo);
 
-// 3) Quiz flow owns questionnaire behavior, rounds and fixed 25-question groups.
+// Quiz flow: all questionnaire behavior and 25-question group coordination.
 const quizParts=[
   ['Food questionnaire behavior','js/features/food-special.js'],
   ['Question copy cleanup','js/features/question-copy-cleanup.js'],
@@ -47,99 +47,156 @@ const quizParts=[
 ];
 const quizTransform=(p,src)=>{
   if(p.endsWith('/rounds.js'))src=src.replaceAll('以前玩过的','历史记录');
-  if(p.endsWith('/session-mode.js')){
-    src=src.replaceAll('轮','题组');
-    src=src.replaceAll('round','round'); // keep identifiers unchanged; only Chinese copy changed above.
-  }
+  if(p.endsWith('/session-mode.js'))src=src.replaceAll('轮','题组');
   return src;
 };
-let quiz=`// Canonical questionnaire-flow module. Modify this file directly; do not add behavior patches.\n`;
+let quiz='// Canonical questionnaire-flow module. Modify this file directly; do not add behavior patches.\n';
 for(const [title,p] of quizParts)quiz+=section(title,p,s=>quizTransform(p,s));
 write('js/features/quiz-flow.js',quiz);
 
-// 4) History owns local completed records, cloud backup UI and Word export.
-let historyWord=read('js/features/history-word.js').replaceAll('轮','题组');
-// Add cloud helpers directly to the real history page implementation.
-const helperMarker='  function groupHtml(group){';
-if(!historyWord.includes(helperMarker))throw new Error('history groupHtml marker missing');
-const historyCloudHelpers=`  function historyCloudStatus(entry){\n    return window.coupleCloud?.statusFor?.(entry)||{state:'local',label:'仅本机'};\n  }\n  function historyCloudAction(entry){\n    const s=historyCloudStatus(entry);\n    return s.state==='synced'?'重新上传':s.state==='local'?'关联并上传':'立即上传';\n  }\n  function historyCloudSummary(){\n    const list=roundsHistoryLoad(),states=list.map(historyCloudStatus);\n    const synced=states.filter(x=>x.state==='synced').length;\n    const failed=states.filter(x=>x.state==='failed').length;\n    const local=states.filter(x=>x.state==='local').length;\n    const waiting=list.length-synced-failed-local;\n    const parts=[\`云端 \${synced}/\${list.length} 条已上传\`];\n    if(waiting)parts.push(\`\${waiting} 条待上传\`);\n    if(failed)parts.push(\`\${failed} 条上传失败\`);\n    if(local)parts.push(\`\${local} 条仅本机\`);\n    return parts.join(' · ');\n  }\n  async function historySyncAll(button){\n    const c=window.coupleCloud;if(!c?.syncNow)return;\n    const old=button?.textContent;if(button){button.disabled=true;button.textContent='上传中…'}\n    try{\n      const result=await c.syncNow();await c.pullNow?.().catch(()=>{});\n      if(typeof showToast==='function'){\n        if(result?.failed)showToast(\`已上传 \${result.synced||0} 条，\${result.failed} 条失败\`);\n        else if(result?.synced)showToast(\`已上传云端 \${result.synced} 条\`);\n        else showToast('云端记录已是最新');\n      }\n      roundsHistoryList();\n    }finally{if(button){button.disabled=false;button.textContent=old||'立即上传'}}\n  }\n  async function historySyncOne(id,button){\n    const c=window.coupleCloud;if(!c?.syncEntry)return;\n    const old=button?.textContent;if(button){button.disabled=true;button.textContent='上传中…'}\n    try{await c.syncEntry(id);await c.pullNow?.().catch(()=>{});roundsHistoryDetail(id)}\n    finally{if(button){button.disabled=false;button.textContent=old||'立即上传'}}\n  }\n\n`;
-historyWord=historyWord.replace(helperMarker,historyCloudHelpers+helperMarker);
-
-// Status in each real history card.
-const headPattern='<div class="history-round-head"><div><small>${esc(roundsFormatDateTime(entry.completedAt))}</small><h3>${esc(partLabel(entry))}</h3></div></div>';
-const headReplacement='<div class="history-round-head"><div><small>${esc(roundsFormatDateTime(entry.completedAt))}</small><h3>${esc(partLabel(entry))}</h3></div>${(()=>{const s=historyCloudStatus(entry);return `<em class="cloud-status ${esc(s.state)}">${esc(s.label)}</em>`})()}</div>';
-historyWord=mustReplace(historyWord,headPattern,headReplacement,'history card cloud badge');
-
-const actionPattern='<button data-export-round="${esc(entry.id)}">导出本题组 Word</button></div></article>';
-const actionReplacement='<button data-export-round="${esc(entry.id)}">导出本题组 Word</button><button class="cloud-sync-button" data-sync-round="${esc(entry.id)}">${esc(historyCloudAction(entry))}</button></div></article>';
-historyWord=mustReplace(historyWord,actionPattern,actionReplacement,'history card upload action');
-
-const listPattern='<section class="history-word-page">${groups.length?groups.map(groupHtml).join(\'\'):';
-const listReplacement='<section class="history-word-page"><div class="cloud-sync-bar"><span>${esc(historyCloudSummary())}</span><button type="button" class="cloud-sync-button" data-sync-all>立即上传</button></div>${groups.length?groups.map(groupHtml).join(\'\'):';
-historyWord=mustReplace(historyWord,listPattern,listReplacement,'history cloud summary');
-
-const listBindings="    app.querySelectorAll('[data-export-set]').forEach(b=>b.onclick=()=>exportSetWord(b.dataset.exportSet));";
-const listBindingsReplacement=listBindings+"\n    app.querySelector('[data-sync-all]')?.addEventListener('click',e=>historySyncAll(e.currentTarget));\n    app.querySelectorAll('[data-sync-round]').forEach(b=>b.onclick=e=>historySyncOne(b.dataset.syncRound,e.currentTarget));";
-historyWord=mustReplace(historyWord,listBindings,listBindingsReplacement,'history upload handlers');
-
-const detailDelete='<button class="history-delete" data-delete>删除这次记录</button></section>`;';
-const detailCloud='<div class="history-cloud-actions">${(()=>{const s=historyCloudStatus(entry);return `<em class="cloud-status ${esc(s.state)}">${esc(s.label)}</em><button type="button" class="cloud-sync-button" data-sync-current>${esc(historyCloudAction(entry))}</button>`})()}</div><button class="history-delete" data-delete>删除这次记录</button></section>`;';
-historyWord=mustReplace(historyWord,detailDelete,detailCloud,'history detail cloud action');
-const detailBinding="    app.querySelector('[data-export-round]').onclick=()=>exportRoundWord(entry.id);";
-historyWord=mustReplace(historyWord,detailBinding,detailBinding+"\n    app.querySelector('[data-sync-current]')?.addEventListener('click',e=>historySyncOne(entry.id,e.currentTarget));",'history detail upload handler');
-
+// History: tombstones + real history browser + cloud persistence.
 let cloudData=read('js/core/cloud-data.js');
-// Cloud UI is now rendered by history.js itself, so old DOM decorators are harmless but no longer authoritative.
 cloudData=cloudData.replace("syncEntry:id=>syncLocal({manual:true,onlyId:id}),","syncEntry:id=>manualSyncOne(id,null),");
-
-let history=`// Canonical history + cloud-backup module. Modify this file directly; do not add history fix files.\n`;
+let history='// Canonical history + cloud-backup module. Modify this file directly; do not add history fix files.\n';
 history+=section('Delete tombstones','js/features/rounds-history-delete.js');
-history+=`\n/* ==========================================================================\n   History browser and Word export\n   ========================================================================== */\n${historyWord.trim()}\n`;
+history+=section('History browser and Word export','js/features/history-word.js',s=>s.replaceAll('轮','题组'));
 history+=`\n/* ==========================================================================\n   Supabase encrypted backup\n   ========================================================================== */\n${cloudData.trim()}\n`;
-history+=`\n/* Normalize titles stored by older versions. */\n(function(){\n  try{\n    const names={either:'生活里的小选择',talk:'慢慢真心话'};\n    const list=roundsHistoryLoad();let changed=false;\n    list.forEach(entry=>{const title=names[entry?.quizId];if(title&&entry.quizTitle!==title){entry.quizTitle=title;changed=true}});\n    if(changed)roundsHistorySave(list);\n  }catch{}\n})();\n`;
+
+// This UI section targets the actual history-word DOM and is part of the canonical history module.
+history+=String.raw`
+/* ============================================================================
+   Cloud status + manual upload controls for the canonical history page
+   ========================================================================== */
+(function(){
+  const baseList=roundsHistoryList;
+  const baseDetail=roundsHistoryDetail;
+  let detailId='';
+  const entries=()=>roundsHistoryLoad();
+  const cloud=()=>window.coupleCloud||null;
+  const status=entry=>cloud()?.statusFor?.(entry)||{state:'local',label:'仅本机'};
+  const actionLabel=entry=>{const s=status(entry);return s.state==='synced'?'重新上传':s.state==='local'?'关联并上传':'立即上传'};
+  function summary(){
+    const list=entries(),states=list.map(status);
+    const synced=states.filter(x=>x.state==='synced').length;
+    const failed=states.filter(x=>x.state==='failed').length;
+    const local=states.filter(x=>x.state==='local').length;
+    const waiting=list.length-synced-failed-local;
+    const parts=[`云端 ${synced}/${list.length} 条已上传`];
+    if(waiting)parts.push(`${waiting} 条待上传`);
+    if(failed)parts.push(`${failed} 条上传失败`);
+    if(local)parts.push(`${local} 条仅本机`);
+    return parts.join(' · ');
+  }
+  function makeStatus(entry){
+    const s=status(entry),el=document.createElement('em');el.className=`cloud-status ${s.state}`;el.textContent=s.label;return el;
+  }
+  async function syncAll(button){
+    const c=cloud();if(!c?.syncNow)return;
+    const old=button.textContent;button.disabled=true;button.textContent='上传中…';
+    try{
+      const r=await c.syncNow();await c.pullNow?.().catch(()=>{});
+      if(r?.failed)showToast(`已上传 ${r.synced||0} 条，${r.failed} 条失败`);
+      else if(r?.synced)showToast(`已上传云端 ${r.synced} 条`);
+      else showToast('云端记录已是最新');
+      roundsHistoryList();
+    }finally{button.disabled=false;button.textContent=old}
+  }
+  async function syncOne(id,button){
+    const c=cloud();if(!c?.syncEntry)return;
+    const old=button.textContent;button.disabled=true;button.textContent='上传中…';
+    try{await c.syncEntry(id);await c.pullNow?.().catch(()=>{});roundsHistoryDetail(id)}
+    finally{button.disabled=false;button.textContent=old}
+  }
+  function decorateList(){
+    if(route.view!=='history')return;
+    const page=app.querySelector('.history-word-page');if(!page)return;
+    app.querySelector('.cloud-sync-bar')?.remove();
+    const bar=document.createElement('div');bar.className='cloud-sync-bar';
+    const text=document.createElement('span');text.textContent=summary();
+    const button=document.createElement('button');button.type='button';button.className='cloud-sync-button';button.textContent='立即上传';button.onclick=()=>syncAll(button);
+    bar.append(text,button);page.prepend(bar);
+    app.querySelectorAll('.history-round-card[data-entry]').forEach(card=>{
+      const entry=entries().find(x=>x.id===card.dataset.entry);if(!entry)return;
+      card.querySelector('.cloud-status')?.remove();
+      const head=card.querySelector('.history-round-head');head?.appendChild(makeStatus(entry));
+      let upload=card.querySelector('[data-sync-round]');
+      if(!upload){upload=document.createElement('button');upload.type='button';upload.className='cloud-sync-button';upload.dataset.syncRound=entry.id;card.querySelector('.history-round-actions')?.appendChild(upload)}
+      upload.textContent=actionLabel(entry);upload.onclick=e=>syncOne(entry.id,e.currentTarget);
+    });
+  }
+  function decorateDetail(id=''){
+    if(id)detailId=id;if(route.view!=='history-detail')return;
+    const entry=entries().find(x=>x.id===detailId);if(!entry)return;
+    app.querySelector('.history-cloud-actions')?.remove();
+    const del=app.querySelector('[data-delete]');if(!del)return;
+    const wrap=document.createElement('div');wrap.className='history-cloud-actions';wrap.appendChild(makeStatus(entry));
+    const button=document.createElement('button');button.type='button';button.className='cloud-sync-button';button.textContent=actionLabel(entry);button.onclick=e=>syncOne(entry.id,e.currentTarget);wrap.appendChild(button);
+    del.insertAdjacentElement('beforebegin',wrap);
+  }
+  roundsHistoryList=function(){const out=baseList();decorateList();return out};
+  roundsHistoryDetail=function(id){detailId=id;const out=baseDetail(id);decorateDetail(id);return out};
+  try{
+    const names={either:'生活里的小选择',talk:'慢慢真心话'},list=entries();let changed=false;
+    list.forEach(entry=>{const t=names[entry?.quizId];if(t&&entry.quizTitle!==t){entry.quizTitle=t;changed=true}});
+    if(changed)roundsHistorySave(list);
+  }catch{}
+})();
+`;
 write('js/features/history.js',history);
 
-// 5) Shell owns home tone, PWA and settings.
+// Shell: home presentation + PWA + settings.
 const shellParts=[
   ['Home presentation','js/features/home-atmosphere.js'],
   ['PWA install/update','js/core/pwa.js'],
   ['Settings','js/core/settings.js']
 ];
-let shell=`// Canonical application shell. Modify this file directly; do not add UI patch files.\n`;
+let shell='// Canonical application shell. Modify this file directly; do not add UI patch files.\n';
 for(const [title,p] of shellParts)shell+=section(title,p);
 write('js/core/shell.js',shell);
 
-// Replace the long script chain with five canonical runtime files (app + four modules).
+// Index: five runtime files total (base app + four responsibility modules).
 let index=read('index.html');
 const bankEnd=/(<script src="banks\/food\.js[^>]*><\/script>)[\s\S]*?(<script>window\.coupleCore\?\.boot\?\.\(\);window\.coupleCloud\?\.init\?\.\(\);<\/script>)/;
 if(!bankEnd.test(index))throw new Error('index runtime block marker missing');
 index=index.replace(bankEnd,`$1\n  <script src="js/core/duo.js?v=20260826-arch1"></script>\n  <script src="js/features/quiz-flow.js?v=20260826-arch1"></script>\n  <script src="js/features/history.js?v=20260826-arch1"></script>\n  <script src="js/core/shell.js?v=20260826-arch1"></script>\n  $2`);
 write('index.html',index);
 
-// Architecture guard: prevent regression to patch-file layering and stale terminology.
-write('scripts/check-architecture.js',`const fs=require('fs');\nconst path=require('path');\nconst root=path.resolve(__dirname,'..');\nconst index=fs.readFileSync(path.join(root,'index.html'),'utf8');\nconst expected=['js/core/app.js','js/core/duo.js','js/features/quiz-flow.js','js/features/history.js','js/core/shell.js'];\nconst loaded=[...index.matchAll(/<script src=\\"(js\\/[^\\"?]+)[^\\"]*\\"><\\/script>/g)].map(x=>x[1]);\nfor(const p of expected){if(!loaded.includes(p))throw new Error('Missing canonical runtime: '+p)}\nconst extra=loaded.filter(p=>!expected.includes(p));if(extra.length)throw new Error('Non-canonical runtime scripts in index: '+extra.join(', '));\nfunction walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)])}\nconst files=walk(path.join(root,'js')).filter(p=>p.endsWith('.js'));\nconst badNames=files.filter(p=>/(?:-fix|-patch|\\.fix|\\.patch)\\.js$/i.test(p));if(badNames.length)throw new Error('Patch files are forbidden: '+badNames.join(', '));\nfor(const p of files){const s=fs.readFileSync(p,'utf8');if(s.includes('以前玩过的'))throw new Error('Old history terminology in '+p);if(s.includes('答案仅保存在本机')||s.includes('不上传答案'))throw new Error('Stale local-only copy in '+p)}\nconsole.log('Architecture check passed: 5 canonical runtime modules, no patch files, terminology clean.');\n`);
+// Architecture guard.
+write('scripts/check-architecture.js',String.raw`const fs=require('fs');
+const path=require('path');
+const root=path.resolve(__dirname,'..');
+const index=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const expected=['js/core/app.js','js/core/duo.js','js/features/quiz-flow.js','js/features/history.js','js/core/shell.js'];
+const loaded=[...index.matchAll(/<script src="(js\/[^"?]+)[^"]*"><\/script>/g)].map(x=>x[1]);
+for(const p of expected)if(!loaded.includes(p))throw new Error('Missing canonical runtime: '+p);
+const extra=loaded.filter(p=>!expected.includes(p));if(extra.length)throw new Error('Non-canonical runtime scripts in index: '+extra.join(', '));
+function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)])}
+const files=walk(path.join(root,'js')).filter(p=>p.endsWith('.js'));
+const bad=files.filter(p=>/(?:-fix|-patch|\.fix|\.patch)\.js$/i.test(p));if(bad.length)throw new Error('Patch files are forbidden: '+bad.join(', '));
+for(const p of files){const s=fs.readFileSync(p,'utf8');if(s.includes('以前玩过的'))throw new Error('Old history terminology in '+p);if(s.includes('答案仅保存在本机')||s.includes('不上传答案'))throw new Error('Stale local-only copy in '+p)}
+console.log('Architecture check passed: 5 canonical runtime modules, no patch files, terminology clean.');
+`);
 
-// Update CI to enforce architecture before browser tests.
+// CI guard.
 let workflow=read('.github/workflows/pages.yml');
 const qcheck='      - name: Check question banks\n        run: node scripts/check-question-banks.js\n';
 if(!workflow.includes('Check architecture'))workflow=mustReplace(workflow,qcheck,qcheck+'\n      - name: Check architecture\n        run: node scripts/check-architecture.js\n','CI architecture step');
 write('.github/workflows/pages.yml',workflow);
 
-// Update the cloud-history regression test to exercise the real canonical history page.
+// Regression test now targets the real history browser.
 let test=read('tests/cloud-history-ui.spec.js');
 test=test.replaceAll("page.locator('.history-link')","page.locator('.history-corner-btn')");
 test=test.replaceAll("page.locator('.history-row .cloud-status')","page.locator('.history-round-card .cloud-status')");
 test=test.replaceAll("page.locator('.cloud-sync-bar .cloud-sync-button')).toHaveText('立即同步')","page.locator('.cloud-sync-bar .cloud-sync-button')).toHaveText('立即上传')");
 test=test.replaceAll("page.locator('.history-row').click()","page.locator('[data-view-round]').click()");
-test=test.replaceAll("toHaveText('关联并上传')","toHaveText('关联并上传')");
 write('tests/cloud-history-ui.spec.js',test);
 
-// Remove legacy runtime sources now represented by canonical modules.
+// Delete legacy sources now represented by canonical modules.
 const keep=new Set(['js/core/app.js','js/core/duo.js','js/core/shell.js','js/features/quiz-flow.js','js/features/history.js']);
 const legacy=[...duoParts.map(x=>x[1]),...quizParts.map(x=>x[1]),'js/features/rounds-history-delete.js','js/features/history-word.js','js/core/cloud-data.js','js/core/cloud-history-ui-fix.js',...shellParts.map(x=>x[1]),'js/features/either-title.js','js/features/site-copy.js'];
-for(const p of new Set(legacy)){if(!keep.has(p))remove(p)}
+for(const p of new Set(legacy))if(!keep.has(p))remove(p);
 
-// Remove this one-time migration and its workflow after it has rewritten the branch.
+// One-time migration cleans itself up.
 remove('scripts/refactor-runtime.js');
 remove('.github/workflows/refactor-architecture.yml');
 console.log('Runtime architecture consolidated.');
