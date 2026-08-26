@@ -140,7 +140,11 @@
     }
   }
   const baseApplySnapshot=duoNavApplySnapshot;
-  duoNavApplySnapshot=function(snapshot){adoptSnapshot(snapshot);return baseApplySnapshot(snapshot)};
+  duoNavApplySnapshot=function(snapshot){
+    adoptSnapshot(snapshot);
+    if(snapshot&&snapshot.clientId!==duo.clientId&&duo.active&&!duo.accepted){duoNavPending=snapshot;return}
+    return baseApplySnapshot(snapshot)
+  };
 
   // Attach the chosen next block to the same round request snapshot.
   const basePublishAction=roundsPublishAction;
