@@ -14,16 +14,33 @@ async function openEither(page){
   await expect(page.locator('.question-card')).toBeVisible();
 }
 
-test('预置答案和自己填写双向互斥，填写后要确定才提交', async ({ page }) => {
+test('预置答案和自己填写使用同一选项组件，填写后要确定才提交', async ({ page }) => {
   await openEither(page);
-  const presets=page.locator('.question-card .options [data-opt]');
+  const options=page.locator('.question-card .options');
+  const presets=options.locator('[data-opt]');
+  const custom=options.locator('[data-custom-open]');
+  await expect(custom).toHaveClass(/option/);
+  await expect(custom).toHaveClass(/choice-custom-option/);
+  await expect(custom.locator('xpath=..')).toHaveClass(/options/);
+  const visual=await page.evaluate(()=>{
+    const preset=document.querySelector('[data-opt]');
+    const custom=document.querySelector('[data-custom-open]');
+    const a=getComputedStyle(preset),b=getComputedStyle(custom);
+    return {presetRadius:a.borderRadius,customRadius:b.borderRadius,presetMin:a.minHeight,customMin:b.minHeight,customGrid:b.gridColumn};
+  });
+  expect(visual.customRadius).toBe(visual.presetRadius);
+  expect(visual.customMin).toBe(visual.presetMin);
+  expect(visual.customGrid).not.toBe('auto');
+
   await presets.first().click();
   await expect(presets.first()).toHaveClass(/selected/);
 
-  await page.locator('.choice-custom-option').click();
-  const editor=page.locator('.choice-custom-option.choice-custom-editor');
+  await custom.click();
+  const editor=options.locator('.choice-custom-editor');
   const input=editor.locator('input');
   await expect(editor).toHaveClass(/selected/);
+  await expect(editor.locator('[data-custom-confirm]')).toHaveClass(/primary/);
+  await expect(editor.locator('[data-custom-cancel]')).toHaveClass(/ghost/);
   await expect(page.locator('[data-opt].selected')).toHaveCount(0);
 
   await input.fill('我的答案');
@@ -59,7 +76,7 @@ test('自己填写时 Backspace 只删除文字且不会自动提交', async ({ 
 test('实时状态刷新不会替换正在输入的自制输入框', async ({ page }) => {
   await openEither(page);
   await page.locator('.choice-custom-option').click();
-  const editor=page.locator('.choice-custom-option.choice-custom-editor');
+  const editor=page.locator('.choice-custom-editor');
   const input=editor.locator('input');
   await input.fill('连续输入测试');
   await input.evaluate(el=>{el.dataset.keepNode='yes'});
