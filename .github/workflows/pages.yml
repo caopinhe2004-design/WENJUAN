@@ -31,7 +31,7 @@ jobs:
               sha: context.sha,
               state: 'pending',
               context: 'wenjuan/pages-ci',
-              description: '正在检查题库、浏览器交互和双人同步',
+              description: '正在检查架构、题库、浏览器交互和双人同步',
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
 
@@ -45,6 +45,9 @@ jobs:
 
       - name: Check question banks
         run: node scripts/check-question-banks.js
+
+      - name: Check architecture
+        run: node scripts/check-architecture.js
 
       - name: Install E2E dependencies
         run: npm install --no-audit --no-fund
@@ -95,9 +98,9 @@ jobs:
           set -e
           for attempt in $(seq 1 12); do
             index="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL}?sha=${GITHUB_SHA}" || true)"
-            script="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/js/core/runtime.js?sha=${GITHUB_SHA}" || true)"
-            if printf '%s' "$index" | grep -q 'js/core/runtime.js' && printf '%s' "$script" | grep -q 'Consolidated interaction + realtime stability runtime'; then
-              echo "GitHub Pages is serving the organized app."
+            script="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/js/core/duo.js?sha=${GITHUB_SHA}" || true)"
+            if printf '%s' "$index" | grep -q 'js/core/duo.js' && printf '%s' "$script" | grep -q 'Canonical dual-room module'; then
+              echo "GitHub Pages is serving the canonical runtime."
               exit 0
             fi
             echo "Waiting for Pages propagation (${attempt}/12)..."
@@ -123,6 +126,6 @@ jobs:
               sha: context.sha,
               state: ok ? 'success' : 'failure',
               context: 'wenjuan/pages-ci',
-              description: ok ? 'E2E、题库检查和 Pages 部署均通过' : `验证=${verify}，部署=${deploy}`,
+              description: ok ? '架构、E2E、题库检查和 Pages 部署均通过' : `验证=${verify}，部署=${deploy}`,
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
