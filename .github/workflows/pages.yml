@@ -95,9 +95,9 @@ jobs:
           set -e
           for attempt in $(seq 1 12); do
             index="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL}?sha=${GITHUB_SHA}" || true)"
-            script="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/core-runtime.js?sha=${GITHUB_SHA}" || true)"
-            if printf '%s' "$index" | grep -q 'core-runtime.js' && printf '%s' "$script" | grep -q 'Consolidated interaction + realtime stability runtime'; then
-              echo "GitHub Pages is serving the consolidated app."
+            script="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/js/core/runtime.js?sha=${GITHUB_SHA}" || true)"
+            if printf '%s' "$index" | grep -q 'js/core/runtime.js' && printf '%s' "$script" | grep -q 'Consolidated interaction + realtime stability runtime'; then
+              echo "GitHub Pages is serving the organized app."
               exit 0
             fi
             echo "Waiting for Pages propagation (${attempt}/12)..."
