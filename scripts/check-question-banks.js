@@ -25,8 +25,19 @@ for(const id of baseIds){
 }
 vm.runInContext(fs.readFileSync('banks/normalize.js','utf8'),context,{filename:'banks/normalize.js'});
 vm.runInContext(fs.readFileSync('banks/food.js','utf8'),context,{filename:'banks/food.js'});
-const foodSpecial='js/features/food-special.js';
-vm.runInContext(fs.readFileSync(foodSpecial,'utf8'),context,{filename:foodSpecial});
+
+// Food-tail normalization now lives inside the canonical questionnaire module.
+// Execute only that owned section, not the rest of the browser application.
+const quizFlow='js/features/quiz-flow.js';
+const quizFlowSource=fs.readFileSync(quizFlow,'utf8');
+const foodMarker='Consolidated from js/features/food-special.js';
+const nextMarker='Consolidated from js/features/question-copy-cleanup.js';
+const foodAt=quizFlowSource.indexOf(foodMarker),nextAt=quizFlowSource.indexOf(nextMarker);
+if(foodAt<0||nextAt<0||nextAt<=foodAt)throw new Error('Canonical food questionnaire section missing from quiz-flow.js');
+const foodBodyStart=quizFlowSource.indexOf('*/',foodAt)+2;
+const nextCommentStart=quizFlowSource.lastIndexOf('/*',nextAt);
+if(foodBodyStart<2||nextCommentStart<=foodBodyStart)throw new Error('Unable to isolate canonical food questionnaire section');
+vm.runInContext(quizFlowSource.slice(foodBodyStart,nextCommentStart),context,{filename:`${quizFlow}#food-questionnaire`});
 
 let bad=false;
 for(const [id,spec] of Object.entries(specs)){
@@ -65,16 +76,16 @@ for(const [id,spec] of Object.entries(specs)){
     }
 
     const removedFruit=['李子','龙眼','桑葚','百香果','菠萝蜜'];
-    const fruitRound=names.slice(150,175);
-    if(fruitRound.length!==25){console.error('food: fruit round must contain 25 items');bad=true}
+    const fruitGroup=names.slice(150,175);
+    if(fruitGroup.length!==25){console.error('food: fruit group must contain 25 items');bad=true}
     for(const name of removedFruit){if(names.includes(name)){console.error(`food: removed less-common fruit still present: ${name}`);bad=true}}
 
     const special=['皮蛋','臭豆腐','香椿','腐乳','酸笋','泡椒','芥末','花椒','芝麻酱','酒酿','茴香','生姜','咖喱','辣条','奶酪','辣椒油','豆豉','陈醋','豆瓣酱','花生酱','香油','黑巧克力','咖啡','抹茶甜品','话梅'];
-    const specialRound=names.slice(175,200);
-    if(JSON.stringify(specialRound)!==JSON.stringify(special)){console.error('food: final 25 questions must be the cleaned special-taste round');bad=true}
+    const specialGroup=names.slice(175,200);
+    if(JSON.stringify(specialGroup)!==JSON.stringify(special)){console.error('food: final 25 questions must be the cleaned special-taste group');bad=true}
 
     for(const misplaced of ['猪脑','鸡胗','鸭肠','黄喉','羊杂','蚕蛹','皮冻','肥肉','鸡皮','臭鳜鱼','龟苓膏']){
-      if(specialRound.includes(misplaced)){console.error(`food: misplaced/cold item in special round: ${misplaced}`);bad=true}
+      if(specialGroup.includes(misplaced)){console.error(`food: misplaced/cold item in special group: ${misplaced}`);bad=true}
     }
     for(const abstract of ['花椒麻味','姜味','椰子味','薄荷味','孜然味']){
       if(names.includes(abstract)){console.error(`food: abstract flavour label still present: ${abstract}`);bad=true}
