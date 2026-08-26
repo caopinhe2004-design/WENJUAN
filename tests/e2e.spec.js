@@ -118,8 +118,15 @@ test('双客户端只同步已确认答案、离线后回来继续同步', async
   await pageB.getByRole('button', { name: /自己写一个/ }).click();
   await pageB.locator('.choice-custom-editor input').fill('我有自己的答案');
 
-  await pageA.waitForFunction(() => duoRemoteState()?.pendingKey === 'either:0', null, { timeout: 15000 });
-  expect(await pageA.evaluate(() => duoRemoteState()?.answers?.['either:0'])).toBeUndefined();
+  // Drafts are fully local: before confirmation the peer receives neither
+  // the draft content nor an "editing"/pending marker.
+  await pageA.waitForTimeout(800);
+  const beforeConfirm = await pageA.evaluate(() => {
+    const r = duoRemoteState();
+    return { answer: r?.answers?.['either:0'], pendingKey: r?.pendingKey };
+  });
+  expect(beforeConfirm.answer).toBeUndefined();
+  expect(beforeConfirm.pendingKey).toBeUndefined();
   await expect(pageA.locator('.duo-reveal')).toHaveCount(0);
 
   await pageB.locator('[data-custom-confirm]').click();
