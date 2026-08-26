@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="app-preparing">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -10,12 +10,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
   <title>两个人的一页</title>
+  <style>html.app-preparing #app{visibility:hidden}</style>
   <script>
     window.__pwaInstallPrompt=null;
     window.addEventListener('beforeinstallprompt',function(event){
       event.preventDefault();
       window.__pwaInstallPrompt=event;
     });
+    window.setTimeout(function(){document.documentElement.classList.remove('app-preparing')},2500);
   </script>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="single-results.css">
@@ -30,7 +32,7 @@
   <link rel="stylesheet" href="playfulness.css?v=20260824-1837">
   <link rel="stylesheet" href="session-mode.css?v=20260824-2030">
   <link rel="stylesheet" href="food-ui.css?v=20260824-2042">
-  <link rel="stylesheet" href="free-choice.css?v=20260825-inline1">
+  <link rel="stylesheet" href="free-choice.css?v=20260826-core1">
   <link rel="stylesheet" href="history-word.css?v=20260824-2138">
   <link rel="stylesheet" href="pwa.css?v=20260825-pwa12">
   <link rel="stylesheet" href="room-code.css?v=20260825-1252">
@@ -60,33 +62,25 @@
   <script src="single-results.js?v=20260824-1728"></script>
   <script src="mqtt-lite.js?v=20260824-1934"></script>
   <script src="duo.js?v=20260824-1954"></script>
-  <script src="stability.js?v=20260824-1954"></script>
-  <script src="duo-nav.js?v=20260824-1700"></script>
+  <script src="core-runtime.js?v=20260826-core1"></script>
   <script src="polish.js?v=20260825-1056"></script>
   <script src="food-meta.js?v=20260824-2030"></script>
   <script src="moments.js?v=20260824-1734"></script>
   <script src="round3.js?v=20260824-1847"></script>
-  <script src="back-nav-fix.js?v=20260824-1748"></script>
   <script src="rounds.js?v=20260824-1756"></script>
   <script src="rounds-history-delete.js?v=20260824-1759"></script>
-  <script src="background-connection.js?v=20260824-1934"></script>
   <script src="mobile-finish.js?v=20260824-1829"></script>
   <script src="round-context.js?v=20260824-1930"></script>
   <script src="playfulness.js?v=20260824-1847"></script>
   <script src="session-mode.js?v=20260825-0127"></script>
-  <script src="nav-sync-fix.js?v=20260824-1930"></script>
-  <script src="presence-will.js?v=20260824-1934"></script>
-  <script src="presence-live-ui.js?v=20260824-2000"></script>
-  <script src="reconnect-resume.js?v=20260824-2000"></script>
   <script src="food-ui.js?v=20260824-2042"></script>
-  <script src="free-choice.js?v=20260825-inline2"></script>
   <script src="history-word.js?v=20260824-2138"></script>
   <script src="home-atmosphere.js?v=20260825-1056"></script>
   <script src="either-title.js?v=20260824-2313"></script>
   <script src="site-copy.js?v=20260825-1108"></script>
   <script src="pwa.js?v=20260825-pwa12"></script>
   <script src="room-code.js?v=20260825-1252"></script>
-  <script src="stability-hotfix.js?v=20260825-1816"></script>
   <script src="settings.js?v=20260825-1624"></script>
+  <script>window.coupleCore?.boot?.();</script>
 </body>
 </html>
