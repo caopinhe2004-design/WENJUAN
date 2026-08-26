@@ -16,12 +16,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  static:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Mark commit as pending
         uses: actions/github-script@v7
         with:
@@ -31,35 +29,48 @@ jobs:
               sha: context.sha,
               state: 'pending',
               context: 'wenjuan/pages-ci',
-              description: '正在检查题库、浏览器交互和双人同步',
+              description: '正在检查五模块架构、题库和浏览器交互',
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Check JavaScript syntax
         run: find . -type f -name '*.js' -not -path './.git/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
-
       - name: Check question banks
         run: node scripts/check-question-banks.js
+      - name: Check architecture
+        run: node scripts/check-architecture.js
 
+  browser:
+    needs: static
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: core
+            files: tests/e2e.spec.js
+          - group: ui
+            files: tests/cloud-history-ui.spec.js tests/either-title.spec.js tests/food-special.spec.js tests/free-choice.spec.js tests/home-copy.spec.js
+          - group: platform
+            files: tests/pwa.spec.js tests/room-code.spec.js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Install E2E dependencies
         run: npm install --no-audit --no-fund
-
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-
-      - name: Run Playwright E2E
-        run: npm run test:e2e
-
+      - name: Run ${{ matrix.group }} browser tests
+        run: npx playwright test ${{ matrix.files }} --workers=1 --retries=0
       - name: Upload Playwright diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-diagnostics
+          name: playwright-${{ matrix.group }}-diagnostics
           path: |
             playwright-report
             test-results
@@ -67,27 +78,20 @@ jobs:
           retention-days: 7
 
   deploy:
-    needs: verify
+    needs: [static, browser]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
       - name: Verify deployed site
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
@@ -95,34 +99,42 @@ jobs:
           set -e
           for attempt in $(seq 1 12); do
             index="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL}?sha=${GITHUB_SHA}" || true)"
-            script="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/js/core/runtime.js?sha=${GITHUB_SHA}" || true)"
-            if printf '%s' "$index" | grep -q 'js/core/runtime.js' && printf '%s' "$script" | grep -q 'Consolidated interaction + realtime stability runtime'; then
-              echo "GitHub Pages is serving the organized app."
+            duo="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/js/core/duo.js?sha=${GITHUB_SHA}" || true)"
+            history="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/js/features/history.js?sha=${GITHUB_SHA}" || true)"
+            if printf '%s' "$index" | grep -q 'js/core/app.js' \
+              && printf '%s' "$index" | grep -q 'js/core/duo.js' \
+              && printf '%s' "$index" | grep -q 'js/features/quiz-flow.js' \
+              && printf '%s' "$index" | grep -q 'js/features/history.js' \
+              && printf '%s' "$index" | grep -q 'js/core/shell.js' \
+              && printf '%s' "$duo" | grep -q 'window.coupleDuo' \
+              && printf '%s' "$history" | grep -q 'window.coupleHistory'; then
+              echo "GitHub Pages is serving the five canonical runtime modules."
               exit 0
             fi
             echo "Waiting for Pages propagation (${attempt}/12)..."
             sleep 5
           done
-          echo "Pages deployment completed but the site did not pass the smoke check in time."
+          echo "Pages deployment completed but the live site did not pass the canonical-runtime smoke check."
           exit 1
 
   report:
     if: always()
-    needs: [verify, deploy]
+    needs: [static, browser, deploy]
     runs-on: ubuntu-latest
     steps:
       - name: Publish readable commit status
         uses: actions/github-script@v7
         with:
           script: |
-            const verify = '${{ needs.verify.result }}';
+            const stat = '${{ needs.static.result }}';
+            const browser = '${{ needs.browser.result }}';
             const deploy = '${{ needs.deploy.result }}';
-            const ok = verify === 'success' && deploy === 'success';
+            const ok = stat === 'success' && browser === 'success' && deploy === 'success';
             await github.rest.repos.createCommitStatus({
               ...context.repo,
               sha: context.sha,
               state: ok ? 'success' : 'failure',
               context: 'wenjuan/pages-ci',
-              description: ok ? 'E2E、题库检查和 Pages 部署均通过' : `验证=${verify}，部署=${deploy}`,
+              description: ok ? '五模块架构、题库、浏览器回归和 Pages 部署均通过' : `静态=${stat}，浏览器=${browser}，部署=${deploy}`,
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });

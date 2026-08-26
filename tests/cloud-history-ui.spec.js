@@ -5,10 +5,13 @@ test('history list and detail always show cloud status and manual upload control
     const entry = {
       id: 'test-local-history',
       quizId: 'either',
-      quizTitle: '二选一',
+      quizTitle: '生活里的小选择',
       quizIcon: '♡',
       quizType: 'choice',
       seq: 1,
+      sessionPart: 1,
+      sessionStart: 1,
+      sessionEnd: 1,
       startedAt: Date.now() - 60000,
       completedAt: Date.now() - 30000,
       participants: [{ id: 'a', name: '甲' }, { id: 'b', name: '乙' }],
@@ -19,15 +22,16 @@ test('history list and detail always show cloud status and manual upload control
   });
 
   await page.goto('/');
-  await expect(page.locator('.history-link')).toBeVisible();
-  await page.locator('.history-link').click();
+  await expect(page.locator('.history-corner-btn')).toBeHidden();
+  await page.locator('[data-settings-open]').click();
+  await page.locator('[data-settings-history]').click();
 
   await expect(page.locator('.cloud-sync-bar')).toContainText('云端 0/1 条已保存');
   await expect(page.locator('.cloud-sync-bar')).toContainText('1 条仅本机');
-  await expect(page.locator('.history-row .cloud-status')).toHaveText('仅本机');
-  await expect(page.locator('.cloud-sync-bar .cloud-sync-button')).toHaveText('立即同步');
+  await expect(page.locator('.history-round-card .cloud-status')).toHaveText('仅本机');
+  await expect(page.locator('.cloud-sync-bar .cloud-sync-button')).toHaveText('立即上传');
 
-  await page.locator('.history-row').click();
+  await page.locator('[data-view-round]').click();
   await expect(page.locator('.history-cloud-actions .cloud-status')).toHaveText('仅本机');
   await expect(page.locator('.history-cloud-actions .cloud-sync-button')).toHaveText('关联并上传');
 });

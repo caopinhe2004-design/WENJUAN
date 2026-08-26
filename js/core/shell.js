@@ -1,0 +1,73 @@
+// Application shell. This file is the only owner of the home page, settings and PWA controls.
+
+const HOME_DESCRIPTIONS={
+  either:'一些很小的选择，也会悄悄照见两个人的日常。',
+  guess:'试着站到 TA 的那一边，猜一猜那些熟悉又未必知道的答案。',
+  lights:'借几盏红黄绿灯，慢慢说清彼此在意的地方。',
+  whatif:'把现实暂时放在门外，去几个不可能发生的世界里走一圈。',
+  rank:'把喜欢的事排一排，也许会看见彼此心里真正靠前的位置。',
+  memory:'同一段故事会有两种记法，翻翻那些只有你们知道的旧页。',
+  who:'一些小习惯、小毛病、小可爱，看看在彼此眼里都落在谁身上。',
+  cohabit:'把未来的日常提前摊开一点，看看一盏灯、一顿饭、一张床会是什么样。',
+  pref:'喜欢什么、避开什么，把那些细小的偏好慢慢说给对方听。',
+  sweet:'有些事只是轻轻一下，却会让人心里亮很久。',
+  odd:'认真生活已经够久了，偶尔也允许彼此胡思乱想。',
+  talk:'不急着得出结论，只把心里的话多留一会儿。',
+  food:'从一桌家常饭开始，看看以后哪些味道会常常一起出现。'
+};
+const PICK_POOLS={easy:['either','sweet','food','pref','who'],talk:['talk','memory','lights','cohabit'],wild:['whatif','odd','guess','rank'],all:[]};
+
+function naturalProgress(q){const n=answeredCount(q);if(!n)return '还没翻开';if(n>=q.questions.length)return '这一轮写完了';return '上次停在这里'}
+function home(){
+  route={view:'home',quizId:null,index:0};
+  app.innerHTML=`<section class="hero"><div class="eyebrow">有些话，慢一点说也很好</div><h1>这一刻，聊点什么？</h1><p>日子总有匆匆经过的时候。随手翻一页，把那些没来得及说的小事，慢慢说给彼此听。</p></section><section class="play-picker"><div class="play-picker-copy"><span>若一时不知道从哪儿说起</span><b>就凭此刻的心情，选一个开头</b></div><div class="play-picker-actions"><button data-pick="easy">轻轻聊聊</button><button data-pick="talk">说点心里话</button><button data-pick="wild">去远一点想</button><button data-pick="all">随手翻一页</button></div></section><section class="grid">${QUIZZES.map(q=>`<div class="quiz-card-wrap" style="--soft:${q.soft}"><button class="quiz-card" data-open="${q.id}"><span class="icon">${esc(q.icon)}</span><span><h3>${esc(q.title)}</h3><p>${esc(HOME_DESCRIPTIONS[q.id]||q.desc||'')}</p><div class="progress-note">${esc(naturalProgress(q))}</div></span><span class="chev">›</span></button></div>`).join('')}</section><div class="footer-note">愿这些零碎的话，慢慢变成你们共同记得的日子。</div>`;
+  app.querySelectorAll('[data-open]').forEach(button=>button.onclick=()=>window.coupleQuiz.chooseSession(button.dataset.open));
+  app.querySelectorAll('[data-pick]').forEach(button=>button.onclick=()=>pickQuiz(button.dataset.pick));
+  window.coupleDuo?.renderHome?.();
+  injectSettingsButton();
+  window.coupleApp.emit('home:rendered');
+}
+function pickQuiz(kind){const pool=(PICK_POOLS[kind]?.length?PICK_POOLS[kind]:QUIZZES.map(q=>q.id)).filter(id=>quiz(id));const id=pool[Math.floor(Math.random()*pool.length)];if(id)window.coupleQuiz.chooseSession(id)}
+function refreshHomeRoom(){if(route.view==='home')window.coupleDuo?.renderHome?.()}
+
+let deferredPrompt=window.__pwaInstallPrompt||null;
+let refreshing=false;
+function standalone(){return !!(window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true)}
+function ua(){return navigator.userAgent||''}
+function isIPad(){return /ipad/i.test(ua())||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
+function isIPhone(){return /iphone|ipod/i.test(ua())}
+function isIOS(){return isIPad()||isIPhone()}
+function isAndroid(){return /android/i.test(ua())}
+function isWeChat(){return /micromessenger/i.test(ua())}
+function isQQ(){return /mqqbrowser|qq\//i.test(ua())}
+function installInfo(){
+  if(standalone())return {kicker:'已经安装',title:'已经在桌面应用中打开',lead:'当前就是安装后的「两个人的一页」，不需要再次添加。',steps:[]};
+  if(isWeChat()||isQQ())return {kicker:'先用系统浏览器打开',title:'当前浏览器不能直接安装',lead:isIOS()?'请先切换到 Safari，再添加到主屏幕。':'请先切换到 Chrome、Edge 或手机系统浏览器，再安装到桌面。',steps:['点当前页面右上角的菜单按钮','选择“在浏览器打开”或“用其他应用打开”',isIOS()?'进入 Safari 后点分享按钮，再选“添加到主屏幕”':'进入系统浏览器后打开浏览器菜单，选择“安装应用”或“添加到主屏幕”']};
+  if(isIPad())return {kicker:'iPad 安装方法',title:'用 Safari 添加到主屏幕',lead:'iPad 的分享按钮通常在 Safari 顶部工具栏。',steps:['确认当前页面是在 Safari 中打开','点顶部工具栏的“分享”按钮（方框向上箭头）','选择“添加到主屏幕”，再点右上角“添加”']};
+  if(isIPhone())return {kicker:'iPhone 安装方法',title:'用 Safari 添加到主屏幕',lead:'如果当前不是 Safari，请先用 Safari 打开这一页。',steps:['点 Safari 底部的“分享”按钮（方框向上箭头）','向下滑，找到“添加到主屏幕”','点右上角“添加”']};
+  if(isAndroid())return {kicker:'Android 安装方法',title:deferredPrompt?'可以直接安装到桌面':'从浏览器菜单安装',lead:deferredPrompt?'点下面的“立即安装”即可；也可以使用浏览器菜单。':'不同浏览器名称略有差异，入口通常都在右上角浏览器菜单。',steps:['点浏览器右上角的 ⋮ 或菜单按钮','选择“安装应用”或“添加到主屏幕”','按系统提示确认']};
+  return {kicker:'安装到桌面',title:deferredPrompt?'这个浏览器支持直接安装':'从浏览器菜单添加',lead:deferredPrompt?'点下面的“立即安装”即可。':'如果浏览器支持 PWA，可以从浏览器菜单添加。',steps:['打开浏览器菜单','选择“安装应用”或“添加到主屏幕”','按提示确认']};
+}
+function installPanelHTML(){const info=installInfo(),steps=info.steps.length?`<ol class="pwa-install-steps">${info.steps.map(x=>`<li>${x}</li>`).join('')}</ol>`:'',native=deferredPrompt&&!standalone()&&!isIOS()&&!isWeChat()&&!isQQ()?'<button type="button" class="pwa-install-native" data-pwa-native>立即安装</button>':'';return `<section class="pwa-guide" role="dialog" aria-modal="true"><div class="pwa-guide-kicker">${info.kicker}</div><h2>${info.title}</h2><p class="pwa-guide-lead">${info.lead}</p>${steps}<div class="pwa-guide-actions">${native}<button type="button" class="pwa-guide-close" data-pwa-close>知道了</button></div></section>`}
+function closeInstallGuide(){document.querySelector('.pwa-guide-backdrop')?.remove()}
+function showInstallGuide(){closeSettings();closeInstallGuide();const bg=document.createElement('div');bg.className='pwa-guide-backdrop';bg.innerHTML=installPanelHTML();document.body.appendChild(bg);bg.onclick=e=>{if(e.target===bg)closeInstallGuide()};bg.querySelector('[data-pwa-close]').onclick=closeInstallGuide;bg.querySelector('[data-pwa-native]')?.addEventListener('click',runNativeInstall)}
+async function runNativeInstall(){const prompt=deferredPrompt;if(!prompt)return;try{await prompt.prompt();await prompt.userChoice}finally{deferredPrompt=null;window.__pwaInstallPrompt=null;closeInstallGuide()}}
+async function updateWorker(){if(!('serviceWorker' in navigator))return null;let reg=await navigator.serviceWorker.getRegistration('./');if(!reg)reg=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});try{await reg.update()}catch{};if(reg.waiting)try{reg.waiting.postMessage('SKIP_WAITING')}catch{};return reg}
+async function refreshApp(){if(refreshing)return;refreshing=true;try{await updateWorker();const url=new URL(location.href);url.searchParams.set('_refresh',String(Date.now()));location.replace(url.toString())}catch{location.reload()}}
+function cleanRefreshMarker(){try{const url=new URL(location.href);if(!url.searchParams.has('_refresh'))return;url.searchParams.delete('_refresh');history.replaceState(history.state,'',url.pathname+(url.searchParams.toString()?`?${url.searchParams}`:'')+url.hash)}catch{}}
+
+function injectSettingsButton(){
+  if(route.view!=='home')return;app.querySelector('[data-settings-open]')?.remove();
+  const button=document.createElement('button');button.type='button';button.className='settings-open';button.dataset.settingsOpen='1';button.setAttribute('aria-label','打开设置');button.innerHTML='<span>⚙</span><span>设置</span>';button.onclick=openSettings;app.appendChild(button);
+}
+function settingsHTML(){return `<section class="settings-panel" role="dialog" aria-modal="true"><header><div><small>两个人的一页</small><h2>设置</h2></div><button type="button" data-settings-close aria-label="关闭">×</button></header><div class="settings-list"><button type="button" data-settings-history><span><b>历史记录</b><small>查看已经完成的每一轮和云端状态</small></span><i>›</i></button><button type="button" data-settings-install><span><b>${standalone()?'已安装到桌面':'安装到桌面'}</b><small>把这一页像普通应用一样放到桌面</small></span><i>›</i></button><button type="button" data-settings-refresh><span><b>刷新到最新版本</b><small>检查并重新载入最新页面</small></span><i>›</i></button></div></section>`}
+function openSettings(){closeSettings();const bg=document.createElement('div');bg.className='settings-backdrop';bg.innerHTML=settingsHTML();document.body.appendChild(bg);bg.onclick=e=>{if(e.target===bg)closeSettings()};bg.querySelector('[data-settings-close]').onclick=closeSettings;bg.querySelector('[data-settings-history]').onclick=()=>{closeSettings();roundsHistoryList()};bg.querySelector('[data-settings-install]').onclick=showInstallGuide;bg.querySelector('[data-settings-refresh]').onclick=()=>{closeSettings();refreshApp()}}
+function closeSettings(){document.querySelector('.settings-backdrop')?.remove()}
+
+window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredPrompt=event;window.__pwaInstallPrompt=event});
+window.addEventListener('appinstalled',()=>{deferredPrompt=null;window.__pwaInstallPrompt=null;closeInstallGuide()});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>updateWorker().catch(error=>console.warn('PWA registration failed',error)));document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')updateWorker().catch(()=>{})});window.addEventListener('pageshow',()=>updateWorker().catch(()=>{}))}
+cleanRefreshMarker();
+
+window.couplePWA={standalone,showGuide:showInstallGuide,showInstall:showInstallGuide,refresh:refreshApp,checkForUpdate:()=>updateWorker(),isIPad,isIPhone,isAndroid};
+window.coupleShell={home,refreshHomeRoom,openSettings,closeSettings,injectSettingsButton};
