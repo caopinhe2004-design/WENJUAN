@@ -32,16 +32,23 @@ for(const [fn,owner] of Object.entries(ownerFile)){
   if(definitions.length!==1||definitions[0]!==owner)throw new Error(`${fn} must have exactly one definition in ${owner}; found ${definitions.join(', ')||'none'}`);
 }
 
-// quiz-flow.js and quiz-flow.css are one UI ownership unit. Do not split these controls into ad-hoc feature CSS again.
-const quizStyle='css/quiz-flow.css';
-if(!index.includes(quizStyle))throw new Error('index.html must load canonical '+quizStyle);
-const retiredQuizStyles=['css/stability.css','css/round-context.css','css/session-mode.css','css/food-ui.css','css/free-choice.css'];
-for(const retired of retiredQuizStyles){
-  if(index.includes(retired))throw new Error('Retired quiz style fragment still loaded: '+retired);
-  if(fs.existsSync(path.join(root,retired)))throw new Error('Retired quiz style fragment must be merged into '+quizStyle+': '+retired);
+const ownedStyles={
+  'js/core/duo.js':{id:'duo',retired:['css/duo.css','css/room-code.css']},
+  'js/features/quiz-flow.js':{id:'quiz-flow',retired:['css/quiz-flow.css','css/single-results.css','css/stability.css','css/round-context.css','css/session-mode.css','css/food-ui.css','css/free-choice.css']},
+  'js/features/history.js':{id:'history',retired:['css/rounds.css','css/history-word.css','css/cloud-history.css']},
+  'js/core/shell.js':{id:'shell',retired:['css/pwa.css','css/settings.css']}
+};
+for(const [owner,{id,retired}] of Object.entries(ownedStyles)){
+  const source=fs.readFileSync(path.join(root,owner),'utf8');
+  if(!source.includes(`coupleStyles?.install?.('${id}'`))throw new Error(`${owner} must install its owned styles with id ${id}`);
+  for(const css of retired){
+    if(index.includes(css))throw new Error(`Feature CSS must be owned by ${owner}, not loaded from index: ${css}`);
+    if(fs.existsSync(path.join(root,css)))throw new Error(`Feature CSS must be merged into ${owner}: ${css}`);
+  }
 }
+
 const quizJs=fs.readFileSync(path.join(root,'js/features/quiz-flow.js'),'utf8');
-const quizCss=fs.readFileSync(path.join(root,quizStyle),'utf8');
+const duoJs=fs.readFileSync(path.join(root,'js/core/duo.js'),'utf8');
 const uiContracts=[
   ['session-mode-backdrop','.session-mode-backdrop'],
   ['session-resume-backdrop','.session-resume-backdrop'],
@@ -49,14 +56,19 @@ const uiContracts=[
   ['choice-custom-editor','.choice-custom-editor'],
   ['data-custom-confirm','.choice-custom-confirm'],
   ['data-custom-cancel','.choice-custom-cancel'],
+  ['choice-custom-saved','.choice-custom-saved'],
   ['rank-confirm','.rank-confirm'],
   ['food-scene','.food-scene']
 ];
 for(const [markupToken,selector] of uiContracts){
   if(!quizJs.includes(markupToken))throw new Error('quiz-flow.js missing UI contract token: '+markupToken);
-  if(!quizCss.includes(selector))throw new Error(quizStyle+' missing selector for '+markupToken+': '+selector);
+  if(!quizJs.includes(selector))throw new Error('quiz-flow.js missing owned selector for '+markupToken+': '+selector);
 }
 if(!/class=\"option choice-custom-option\"/.test(quizJs))throw new Error('Custom answer must reuse the canonical .option component');
 if(!/\$\{buttons\}\$\{custom\}/.test(quizJs))throw new Error('Custom answer must render inside the same .options component as preset answers');
+if(quizJs.includes('class="letter"')||quizJs.includes("class='letter'"))throw new Error('Choice option letter prefixes are forbidden');
+if(/String\.fromCharCode\(65/.test(quizJs)||/String\.fromCharCode\(65/.test(duoJs))throw new Error('Answer labels must not synthesize A/B/C/D prefixes');
+if(!quizJs.includes("showToast('答案已保存')"))throw new Error('Custom answers must provide a saved confirmation state');
+if(!quizJs.includes("showToast('排序已保存')"))throw new Error('Rank answers must provide a saved confirmation state');
 
-console.log('Architecture check passed: five canonical modules, single public-function owners, no runtime patch chains, canonical quiz UI style ownership.');
+console.log('Architecture check passed: five canonical modules, JS-owned feature styles, single public-function owners, no answer letter prefixes or patch chains.');
