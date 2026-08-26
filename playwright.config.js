@@ -4,8 +4,8 @@ module.exports = defineConfig({
   testDir: './tests',
   timeout: 60000,
   expect: { timeout: 12000 },
-  retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  retries: 0,
+  workers: process.env.CI ? 2 : 1,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173',
