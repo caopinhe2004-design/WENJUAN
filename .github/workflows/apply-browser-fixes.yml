@@ -1,0 +1,38 @@
+name: Apply final browser regression fixes
+
+on:
+  push:
+    branches: ["refactor-app-architecture"]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor-app-architecture
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply source fixes
+        run: |
+          if [ -f scripts/apply-browser-regression-fixes.js ]; then
+            node scripts/apply-browser-regression-fixes.js
+            node --check js/features/quiz-flow.js
+            node --check js/core/duo.js
+            git rm scripts/apply-browser-regression-fixes.js
+          fi
+      - name: Commit source fixes
+        run: |
+          if git diff --quiet; then
+            echo "No source fixes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/features/quiz-flow.js js/core/duo.js scripts/apply-browser-regression-fixes.js || true
+          git commit -m "Fix final browser regressions in source modules"
+          git push origin HEAD:refactor-app-architecture
