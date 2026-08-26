@@ -27,6 +27,28 @@ test('首页使用无时段限制的文学化文案，不显示数量标签', as
   await expect(page.locator('.progress-note').first()).toHaveText('还没翻开');
   await expect(page.locator('body')).not.toContainText(/今晚|睡前|夜深|夜里|夜晚/);
 
+  const settings = page.locator('[data-settings-open]');
+  await expect(settings).toBeVisible();
+  const settingsBox = await settings.evaluate(el => {
+    const style = getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    const expectedRightGap = Math.max(14, (window.innerWidth - 1040) / 2 + 14);
+    return {
+      position: style.position,
+      top: rect.top,
+      rightGap: window.innerWidth - rect.right,
+      expectedRightGap
+    };
+  });
+  expect(settingsBox.position).toBe('fixed');
+  expect(settingsBox.top).toBeLessThan(60);
+  expect(Math.abs(settingsBox.rightGap - settingsBox.expectedRightGap)).toBeLessThanOrEqual(3);
+
+  await settings.click();
+  await expect(page.locator('.settings-panel')).toBeVisible();
+  await expect(page.locator('.settings-list > button')).toHaveCount(3);
+  await page.locator('[data-settings-close]').click();
+
   await page.locator('[data-open="either"]').click();
   const chooser = page.locator('.session-mode-backdrop');
   await expect(chooser).toBeVisible();
