@@ -31,4 +31,32 @@ for(const [fn,owner] of Object.entries(ownerFile)){
   for(const p of files){const s=fs.readFileSync(p,'utf8'),re=new RegExp(`\\bfunction\\s+${fn}\\s*\\(`,'g');if(re.test(s))definitions.push(path.relative(root,p).replace(/\\/g,'/'))}
   if(definitions.length!==1||definitions[0]!==owner)throw new Error(`${fn} must have exactly one definition in ${owner}; found ${definitions.join(', ')||'none'}`);
 }
-console.log('Architecture check passed: five canonical modules, single public-function owners, no runtime patch chains.');
+
+// quiz-flow.js and quiz-flow.css are one UI ownership unit. Do not split these controls into ad-hoc feature CSS again.
+const quizStyle='css/quiz-flow.css';
+if(!index.includes(quizStyle))throw new Error('index.html must load canonical '+quizStyle);
+const retiredQuizStyles=['css/stability.css','css/round-context.css','css/session-mode.css','css/food-ui.css','css/free-choice.css'];
+for(const retired of retiredQuizStyles){
+  if(index.includes(retired))throw new Error('Retired quiz style fragment still loaded: '+retired);
+  if(fs.existsSync(path.join(root,retired)))throw new Error('Retired quiz style fragment must be merged into '+quizStyle+': '+retired);
+}
+const quizJs=fs.readFileSync(path.join(root,'js/features/quiz-flow.js'),'utf8');
+const quizCss=fs.readFileSync(path.join(root,quizStyle),'utf8');
+const uiContracts=[
+  ['session-mode-backdrop','.session-mode-backdrop'],
+  ['session-resume-backdrop','.session-resume-backdrop'],
+  ['choice-custom-option','.choice-custom-option'],
+  ['choice-custom-editor','.choice-custom-editor'],
+  ['data-custom-confirm','.choice-custom-confirm'],
+  ['data-custom-cancel','.choice-custom-cancel'],
+  ['rank-confirm','.rank-confirm'],
+  ['food-scene','.food-scene']
+];
+for(const [markupToken,selector] of uiContracts){
+  if(!quizJs.includes(markupToken))throw new Error('quiz-flow.js missing UI contract token: '+markupToken);
+  if(!quizCss.includes(selector))throw new Error(quizStyle+' missing selector for '+markupToken+': '+selector);
+}
+if(!/class=\"option choice-custom-option\"/.test(quizJs))throw new Error('Custom answer must reuse the canonical .option component');
+if(!/\$\{buttons\}\$\{custom\}/.test(quizJs))throw new Error('Custom answer must render inside the same .options component as preset answers');
+
+console.log('Architecture check passed: five canonical modules, single public-function owners, no runtime patch chains, canonical quiz UI style ownership.');

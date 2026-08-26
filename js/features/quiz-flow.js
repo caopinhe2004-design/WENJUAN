@@ -155,9 +155,9 @@ function renderChoice(q,i,item,value){
   const noLetters=q.id==='food';
   const buttons=options.map((option,n)=>`<button class="option ${!customOpen&&value===n?'selected':''}" data-opt="${n}">${noLetters?'':`<span class="letter">${String.fromCharCode(65+n)}</span>`}<span>${esc(option)}</span></button>`).join('');
   const custom=customOpen
-    ?`<div class="choice-custom-option choice-custom-editor selected"><input type="text" maxlength="120" value="${esc(customValue)}" placeholder="写下自己的答案"><button type="button" data-custom-confirm>确定</button><button type="button" data-custom-cancel>取消</button></div>`
-    :`<button type="button" class="choice-custom-option" data-custom-open><span>＋</span>自己写一个</button>`;
-  return `<div class="options ${options.length<=4?'two-col':''}">${buttons}</div>${custom}`;
+    ?`<div class="choice-custom-editor selected"><input type="text" maxlength="120" value="${esc(customValue)}" placeholder="写下自己的答案"><button type="button" class="primary choice-custom-confirm" data-custom-confirm>确定</button><button type="button" class="ghost choice-custom-cancel" data-custom-cancel>取消</button></div>`
+    :`<button type="button" class="option choice-custom-option" data-custom-open><span class="choice-custom-plus">＋</span><span>自己写一个</span></button>`;
+  return `<div class="options ${options.length<=4?'two-col':''}">${buttons}${custom}</div>`;
 }
 function renderText(q,i,value){
   const k=key(q.id,i),draft=Object.prototype.hasOwnProperty.call(quizDrafts.text,k)?quizDrafts.text[k]:(hasAnswer(value)?String(value):'');
