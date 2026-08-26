@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
 async function waitForBoot(page) {
-  await page.waitForFunction(() => !document.documentElement.classList.contains('app-booting'));
+  await page.waitForFunction(() => !document.documentElement.classList.contains('app-preparing'));
 }
 
 async function waitForHome(page) {
@@ -58,6 +58,7 @@ test('13 套入口、饮食场景、自由选项和重新选轮次', async ({ br
   const custom = page.locator('.choice-custom-editor input');
   await custom.fill('红烧的更喜欢');
   await expect(custom).toHaveValue('红烧的更喜欢');
+  await page.locator('[data-custom-confirm]').click();
 
   await page.locator('[data-home]').click();
   await page.locator('[data-open="food"]').click();
@@ -94,7 +95,7 @@ test('手机和 iPad 视口可以完成饮食题', async ({ browser }) => {
   }
 });
 
-test('双客户端同步、自由回答、离线和回来', async ({ browser }) => {
+test('双客户端只同步已确认答案、离线后回来继续同步', async ({ browser }) => {
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();
@@ -117,9 +118,14 @@ test('双客户端同步、自由回答、离线和回来', async ({ browser }) 
   await pageB.getByRole('button', { name: /自己写一个/ }).click();
   await pageB.locator('.choice-custom-editor input').fill('我有自己的答案');
 
+  await pageA.waitForFunction(() => duoRemoteState()?.pendingKey === 'either:0', null, { timeout: 15000 });
+  expect(await pageA.evaluate(() => duoRemoteState()?.answers?.['either:0'])).toBeUndefined();
+  await expect(pageA.locator('.duo-reveal')).toHaveCount(0);
+
+  await pageB.locator('[data-custom-confirm]').click();
   await pageA.waitForFunction(() => {
     const r = duoRemoteState();
-    return r?.answers?.['either:0']?.kind === 'custom' && r.answers['either:0'].text.includes('自己的答案');
+    return r?.answers?.['either:0']?.kind === 'custom' && r.answers['either:0'].text.includes('自己的答案') && !r.pendingKey;
   }, null, { timeout: 15000 });
 
   await expect(pageA.locator('.duo-reveal')).toBeVisible();
@@ -142,6 +148,25 @@ test('双客户端同步、自由回答、离线和回来', async ({ browser }) 
 
   await contextB.close();
   await contextA.close();
+});
+
+test('双人房间只有自己时，主动回首页后刷新仍留在首页', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await openFresh(page);
+  await createRoom(page, '甲');
+  await page.waitForFunction(() => duo.active && duo.accepted, null, { timeout: 15000 });
+
+  await startPart(page, 'either', 1);
+  await expect(page.locator('.question-card')).toBeVisible();
+  await page.locator('[data-home]').click();
+  await expect(page.locator('[data-open]')).toHaveCount(13);
+  expect(await page.evaluate(() => duoPartnerOnline())).toBe(false);
+
+  await page.reload();
+  await waitForHome(page);
+  expect(await page.evaluate(() => route.view)).toBe('home');
+  await context.close();
 });
 
 test('历史记录显示具体轮次并可导出本轮和整套 Word', async ({ browser }) => {
