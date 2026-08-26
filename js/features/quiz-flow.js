@@ -85,6 +85,10 @@ function currentHasProgress(q){return q?.questions?.some((_,i)=>hasAnswer(state.
 function firstUnanswered(q){const i=q.questions.findIndex((_,n)=>!hasAnswer(state.answers?.[key(q.id,n)]));return i<0?0:i}
 function choiceAnswerIsCustom(value){return !!(value&&typeof value==='object'&&value.kind==='custom')}
 function choiceAnswerText(value){return choiceAnswerIsCustom(value)?String(value.text||'').trim():''}
+function choiceOptionLabel(q,option,index){
+  if(q.id==='who'&&(index===0||index===1)&&window.coupleDuo?.roleName)return window.coupleDuo.roleName(index);
+  return option;
+}
 window.choiceAnswerIsCustom=choiceAnswerIsCustom;
 window.choiceAnswerText=choiceAnswerText;
 
@@ -92,8 +96,9 @@ function answerLabel(q,i,value=state.answers?.[key(q.id,i)]){
   if(!hasAnswer(value))return '未作答';
   if(q.type==='choice'){
     if(choiceAnswerIsCustom(value))return choiceAnswerText(value)||'未作答';
-    if(q.id==='who'&&(value===0||value===1)&&window.coupleDuo?.roleName)return `${value===0?'A':'B'} · ${window.coupleDuo.roleName(value)}`;
-    return q.questions[i]?.[1]?.[Number(value)]??'未作答';
+    const index=Number(value);
+    if(q.id==='who'&&(index===0||index===1)&&window.coupleDuo?.roleName)return window.coupleDuo.roleName(index);
+    return q.questions[i]?.[1]?.[index]??'未作答';
   }
   if(q.type==='scale')return `${value} / 5`;
   if(q.type==='rank')return Array.isArray(value)?value.join(' ＞ '):'未作答';
@@ -152,8 +157,8 @@ function openSynced(id,part,index=0){
 
 function renderChoice(q,i,item,value){
   const options=item[1]||[],k=key(q.id,i),customOpen=!!quizDrafts.customOpen[k]||choiceAnswerIsCustom(value),customValue=quizDrafts.custom[k]??choiceAnswerText(value);
-  const noLetters=q.id==='food';
-  const buttons=options.map((option,n)=>`<button class="option ${!customOpen&&value===n?'selected':''}" data-opt="${n}">${noLetters?'':`<span class="letter">${String.fromCharCode(65+n)}</span>`}<span>${esc(option)}</span></button>`).join('');
+  const noLetters=q.id==='food'||q.id==='who';
+  const buttons=options.map((option,n)=>`<button class="option ${!customOpen&&value===n?'selected':''}" data-opt="${n}">${noLetters?'':`<span class="letter">${String.fromCharCode(65+n)}</span>`}<span>${esc(choiceOptionLabel(q,option,n))}</span></button>`).join('');
   const custom=customOpen
     ?`<div class="choice-custom-editor selected"><input type="text" maxlength="120" value="${esc(customValue)}" placeholder="写下自己的答案"><button type="button" class="primary choice-custom-confirm" data-custom-confirm>确定</button><button type="button" class="ghost choice-custom-cancel" data-custom-cancel>取消</button></div>`
     :`<button type="button" class="option choice-custom-option" data-custom-open><span class="choice-custom-plus">＋</span><span>自己写一个</span></button>`;

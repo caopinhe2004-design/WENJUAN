@@ -186,8 +186,8 @@ function renderHome(){
   bindRoomPanel(box);
 }
 
-function roleName(index){const id=duo.acceptedIds[index];if(!id)return index===0?'A 方':'B 方';return duo.states.get(id)?.nickname||duo.claims.get(id)?.nickname||(id===duo.clientId?duo.nickname:(index===0?'A 方':'B 方'))}
-function formatAnswer(q,i,value){if(value&&typeof value==='object'&&value.kind==='custom')return value.text||'未作答';if(!hasAnswer(value))return '未作答';if(q.type==='choice'){if(q.id==='who'&&(value===0||value===1))return `${value===0?'A':'B'} · ${roleName(Number(value))}`;const fixed=q.questions[i]?.[1]?.[Number(value)]??'未作答';return q.id==='food'?fixed:`${String.fromCharCode(65+Number(value))}${fixed}`}if(q.type==='scale')return `${value} / 5`;if(q.type==='rank')return Array.isArray(value)?value.join(' ＞ '):'未作答';return String(value)}
+function roleName(index){const id=duo.acceptedIds[index];if(!id)return index===0?(duo.nickname||'我'):'TA';return duo.states.get(id)?.nickname||duo.claims.get(id)?.nickname||(id===duo.clientId?(duo.nickname||'我'):'TA')}
+function formatAnswer(q,i,value){if(value&&typeof value==='object'&&value.kind==='custom')return value.text||'未作答';if(!hasAnswer(value))return '未作答';if(q.type==='choice'){const index=Number(value);if(q.id==='who'){if(index===0||index===1)return roleName(index);return q.questions[i]?.[1]?.[index]??'未作答'}const fixed=q.questions[i]?.[1]?.[index]??'未作答';return q.id==='food'?fixed:`${String.fromCharCode(65+index)}${fixed}`}if(q.type==='scale')return `${value} / 5`;if(q.type==='rank')return Array.isArray(value)?value.join(' ＞ '):'未作答';return String(value)}
 function appendRevealBox(slot,q,i,local,remote,remoteValue){const box=document.createElement('div');box.className='duo-reveal-box';box.innerHTML=`<p><small>${esc(duo.nickname||'我')}</small><b>${esc(formatAnswer(q,i,local))}</b></p><p><small>${esc(remote?.nickname||'TA')}</small><b>${esc(formatAnswer(q,i,remoteValue))}</b></p>`;slot.appendChild(box)}
 function decorateQuestion(q,i){
   const slot=app.querySelector('.duo-question-slot');if(!slot)return;slot.innerHTML='';if(!duo.active)return;
