@@ -22,7 +22,7 @@
     nextId(){this.packetId=this.packetId%65535+1;return this.packetId}
     subscribe(topic){this.topics.add(topic);if(this.connected)this._subscribe(topic);return this}
     _subscribe(topic){this.send(packet(0x82,join(u16(this.nextId()),field(topic),new Uint8Array([0]))))}
-    publish(topic,payload,{retain=false}={}){const data=payload instanceof Uint8Array?payload:bytes(payload);this.send(packet(0x30|(retain?1:0),join(field(topic),data))}
+    publish(topic,payload,{retain=false}={}){const data=payload instanceof Uint8Array?payload:bytes(payload);this.send(packet(0x30|(retain?1:0),join(field(topic),data)))}
     end(){this.closed=true;clearTimeout(this.reconnectTimer);clearInterval(this.pingTimer);try{this.send(new Uint8Array([0xe0,0]));this.ws?.close()}catch{}}
   }
   global.TinyMQTT=TinyMQTT;
