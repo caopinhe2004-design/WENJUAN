@@ -25,7 +25,8 @@ for(const id of baseIds){
 }
 vm.runInContext(fs.readFileSync('banks/normalize.js','utf8'),context,{filename:'banks/normalize.js'});
 vm.runInContext(fs.readFileSync('banks/food.js','utf8'),context,{filename:'banks/food.js'});
-vm.runInContext(fs.readFileSync('food-special.js','utf8'),context,{filename:'food-special.js'});
+const foodSpecial='js/features/food-special.js';
+vm.runInContext(fs.readFileSync(foodSpecial,'utf8'),context,{filename:foodSpecial});
 
 let bad=false;
 for(const [id,spec] of Object.entries(specs)){
