@@ -1,1 +1,11 @@
-.option .letter{display:none!important}.choice-custom-option{display:flex;align-items:center;justify-content:flex-start;color:#806f68;background:rgba(255,255,255,.72);border-style:dashed;min-width:0}.choice-custom-option.selected{border-style:solid}.choice-custom-option.choice-custom-editor{display:flex;gap:0;padding:0;border-style:solid;overflow:hidden;cursor:text;background:#fbefed;box-shadow:inset 0 0 0 1px #bb7d77}.choice-custom-option.choice-custom-editor input{width:100%;min-width:0;min-height:52px;border:0;border-radius:inherit;background:transparent;padding:0 16px;color:#403733;font:inherit;font-size:16px;outline:none}.choice-custom-option.choice-custom-editor:focus-within{border-color:#bc817a;box-shadow:inset 0 0 0 1px #bc817a,0 0 0 3px rgba(188,129,122,.12)}.duo-result-answers{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}@media(max-width:560px){.duo-result-answers{grid-template-columns:1fr!important}}
+.option .letter{display:none!important}
+.choice-custom-option{display:flex;align-items:center;justify-content:flex-start;color:#806f68;background:rgba(255,255,255,.72);border-style:dashed;min-width:0}
+.choice-custom-option.selected{border-style:solid}
+.choice-custom-option.choice-custom-editor{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px;border-style:solid;overflow:hidden;cursor:text;background:#fbefed;box-shadow:inset 0 0 0 1px #bb7d77}
+.choice-custom-option.choice-custom-editor input{width:100%;min-width:0;min-height:44px;border:0;border-radius:12px;background:transparent;padding:0 10px;color:#403733;font:inherit;font-size:16px;outline:none}
+.choice-custom-option.choice-custom-editor:focus-within{border-color:#bc817a;box-shadow:inset 0 0 0 1px #bc817a,0 0 0 3px rgba(188,129,122,.12)}
+.choice-custom-confirm,.answer-confirm{appearance:none;border:0;border-radius:12px;background:#3f3531;color:#fff;min-height:42px;padding:0 14px;font:inherit;font-weight:750;white-space:nowrap;cursor:pointer}
+.choice-custom-confirm:disabled,.answer-confirm:disabled{opacity:.4;cursor:default}
+.answer-confirm{margin-top:10px;min-height:44px}
+.duo-result-answers{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+@media(max-width:560px){.duo-result-answers{grid-template-columns:1fr!important}.choice-custom-option.choice-custom-editor{grid-template-columns:1fr}.choice-custom-confirm{width:100%}}
