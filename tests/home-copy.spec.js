@@ -46,7 +46,8 @@ test('首页使用无时段限制的文学化文案，不显示数量标签', as
 
   await settings.click();
   await expect(page.locator('.settings-panel')).toBeVisible();
-  await expect(page.locator('.settings-list > button')).toHaveCount(3);
+  await expect(page.locator('.settings-list > button')).toHaveCount(4);
+  await expect(page.locator('[data-settings-auto]')).toContainText('自动上传历史记录');
   await page.locator('[data-settings-close]').click();
 
   await page.locator('[data-open="either"]').click();
