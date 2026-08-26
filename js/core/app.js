@@ -33,53 +33,29 @@ let state=load();
 let route={view:'home',quizId:null,index:0};
 
 const appListeners=new Map();
-function appOn(name,fn){
-  if(typeof fn!=='function')return()=>{};
-  if(!appListeners.has(name))appListeners.set(name,new Set());
-  appListeners.get(name).add(fn);
-  return()=>appListeners.get(name)?.delete(fn);
-}
-function appEmit(name,...args){
-  for(const fn of appListeners.get(name)||[]){try{fn(...args)}catch(error){console.error(error)}}
-}
+function appOn(name,fn){if(typeof fn!=='function')return()=>{};if(!appListeners.has(name))appListeners.set(name,new Set());appListeners.get(name).add(fn);return()=>appListeners.get(name)?.delete(fn)}
+function appEmit(name,...args){for(const fn of appListeners.get(name)||[])try{fn(...args)}catch(error){console.error(error)}}
 
-function save(){
-  const handled=window.coupleDuo?.persistState?.(state)===true;
-  if(!handled)localStorage.setItem(STORE,JSON.stringify(state));
-  appEmit('state:saved',state);
-}
+function save(){const handled=window.coupleDuo?.persistState?.(state)===true;if(!handled)localStorage.setItem(STORE,JSON.stringify(state));appEmit('state:saved',state)}
 function replaceState(next,{persist=true}={}){state=normalizeState(next);if(persist)save();appEmit('state:replaced',state);return state}
 function loadSoloState(){return load()}
 function saveSoloState(value=state){localStorage.setItem(STORE,JSON.stringify(normalizeState(value)))}
-
 function quiz(id){return QUIZZES.find(q=>q.id===id)}
 function key(qid,i){return `${qid}:${i}`}
 function hasAnswer(v){return v!==undefined&&v!==null&&v!==''}
 function answeredCount(q){return q?.questions?.reduce((n,_,i)=>n+(hasAnswer(state.answers?.[key(q.id,i)])?1:0),0)||0}
-function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-function showToast(message){
-  document.querySelector('.toast')?.remove();
-  const node=document.createElement('div');node.className='toast';node.textContent=String(message||'');document.body.appendChild(node);
-  setTimeout(()=>node.remove(),1600);
-}
-function formatDateTime(ts){
-  const d=new Date(Number(ts)||Date.now()),p=n=>String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[m]))}
+function showToast(message){document.querySelector('.toast')?.remove();const node=document.createElement('div');node.className='toast';node.textContent=String(message||'');document.body.appendChild(node);setTimeout(()=>node.remove(),1600)}
+function formatDateTime(ts){const d=new Date(Number(ts)||Date.now()),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
 
-window.coupleApp={
-  on:appOn,emit:appEmit,replaceState,loadSoloState,saveSoloState,
-  getState:()=>state,getRoute:()=>route,setRoute:next=>{route={...route,...next};appEmit('route:changed',route)},
-  ready(){document.documentElement.classList.add('app-ready');document.documentElement.classList.remove('app-preparing','app-booting')}
-};
+window.coupleApp={on:appOn,emit:appEmit,replaceState,loadSoloState,saveSoloState,getState:()=>state,getRoute:()=>route,setRoute:next=>{route={...route,...next};appEmit('route:changed',route)},ready(){document.documentElement.classList.add('app-ready');document.documentElement.classList.remove('app-preparing','app-booting')}};
 
-window.coupleCore={
-  boot:async function(){
-    try{await window.coupleDuo?.boot?.()}catch(error){console.warn('Duo boot failed',error)}
-    if(route.view==='quiz'&&route.quizId&&typeof renderQuestion==='function')renderQuestion();
-    else if(route.view==='result'&&route.quizId&&typeof quizResult==='function')quizResult(quiz(route.quizId),{archive:false});
-    else if(typeof home==='function')home();
-    window.coupleApp.ready();
-    appEmit('app:booted');
-  }
-};
+window.coupleCore={boot:async function(){
+  try{await window.coupleDuo?.boot?.()}catch(error){console.warn('Duo boot failed',error)}
+  if((route.view==='quiz'||route.view==='result')&&route.quizId&&quiz(route.quizId)){
+    const wanted={...route},part=Number(state.sessions?.[wanted.quizId]?.part)||1;
+    window.coupleQuiz?.openSynced?.(wanted.quizId,part,wanted.index||0);
+    if(wanted.view==='result')window.coupleQuiz?.quizResult?.(quiz(wanted.quizId),{archive:false,notify:false});
+  }else if(typeof home==='function')home();
+  window.coupleApp.ready();appEmit('app:booted');
+}};
