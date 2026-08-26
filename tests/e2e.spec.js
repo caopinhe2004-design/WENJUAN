@@ -68,6 +68,10 @@ test('13 套入口、饮食场景、自由选项和重新选轮次', async ({ br
   await expect.poll(() => page.evaluate(() => state.answers?.['food:0']?.text || '')).toBe('红烧的更喜欢');
   await page.locator('[data-prev]').click();
   await expect(page.locator('.question-card h3')).toHaveText('猪肉');
+  await expect(page.locator('.choice-custom-editor')).toHaveCount(0);
+  await expect(page.locator('[data-custom-open]')).toContainText('红烧的更喜欢');
+  await expect(page.locator('[data-custom-open]')).toContainText('已保存');
+  await page.locator('[data-custom-open]').click();
   await expect(page.locator('.choice-custom-editor input')).toHaveValue('红烧的更喜欢');
 
   await page.locator('[data-home]').click();
