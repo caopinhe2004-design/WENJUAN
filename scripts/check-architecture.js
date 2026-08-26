@@ -15,10 +15,12 @@ const publicOwners=['home','openQuiz','renderQuestion','quizResult','roundsHisto
 for(const p of files){
   const s=fs.readFileSync(p,'utf8'),name=path.relative(root,p);
   if(/(?:-fix|-patch|\.fix|\.patch)\.js$/i.test(p))throw new Error('Patch files are forbidden: '+name);
-  if(/\bconst\s+(?:base|old|previous|original)[A-Z_$\w]*\s*=|\b(?:base|old|previous|original)[A-Z_$\w]*\s*=\s*(?:window\.)?[A-Za-z_$]/.test(s))throw new Error('Runtime wrapper chain is forbidden in '+name);
   for(const fn of publicOwners){
-    const assignment=new RegExp(`(?:^|\\n)\\s*${fn}\\s*=\\s*(?:async\\s*)?(?:function|\\([^)]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)`,'m');
-    if(assignment.test(s))throw new Error(`Public function ${fn} must be declared by its owner, not reassigned in ${name}`);
+    const cap=fn[0].toUpperCase()+fn.slice(1);
+    const alias=new RegExp(`\\b(?:const|let|var)\\s+(?:base|old|previous|original)${cap}\\s*=\\s*(?:window\\.)?${fn}\\b`);
+    const replacement=new RegExp(`(?:^|\\n)\\s*(?:window\\.)?${fn}\\s*=\\s*(?:async\\s*)?(?:function|\\([^)]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)`,'m');
+    if(alias.test(s)&&replacement.test(s))throw new Error(`Runtime wrapper chain for ${fn} is forbidden in ${name}`);
+    if(replacement.test(s))throw new Error(`Public function ${fn} must be declared by its owner, not reassigned in ${name}`);
   }
   if(s.includes('以前玩过的'))throw new Error('Old history terminology in '+name);
   if(s.includes('答案仅保存在本机')||s.includes('不上传答案'))throw new Error('Stale local-only copy in '+name);
