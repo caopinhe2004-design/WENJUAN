@@ -1,6 +1,6 @@
 # 应用结构
 
-前端按职责收敛为五个运行模块。题库保存在 `banks/`；与具体运行模块绑定的样式由该 JS 模块直接拥有，只保留真正跨模块或没有对应 JS owner 的独立 CSS。
+前端按职责收敛为五个运行模块。题库保存在 `banks/`；所有运行时 CSS 都由拥有对应 DOM 的 canonical JS 模块直接注册，不再加载独立样式表。
 
 ## `js/core/app.js`
 只负责应用基础：状态、路由、通用工具、样式注册入口和生命周期。它不实现双人网络、历史数据库或 PWA。
@@ -17,18 +17,18 @@
 ## `js/core/shell.js`
 只负责外围 UI：首页文案、设置、安装/刷新入口、PWA 引导及其样式。
 
-## 独立 CSS
-`css/styles.css`、`css/polish.css`、`css/moments.css`、`css/round3.css`、`css/mobile-finish.css` 等跨模块或无明确 JS owner 的样式仍可独立存在。已经有明确 owner 的功能不再建立同职责 CSS 文件。
+## 样式所有权
+`css/` 目录不再存在。`app.js` 只拥有全局基础规则；`shell.js` 拥有首页与设置/PWA；`quiz-flow.js` 拥有答题与结果；`duo.js` 拥有双人房；`history.js` 拥有历史与云备份页面。修改 DOM 时必须在同一 owner 内同步修改样式。
 
 ## 约束
 - 一个公共函数只能有一个所有者和一个定义位置。
 - 禁止 `const baseX=x; x=function(){...}` 这类运行时补丁链。
 - 禁止新增 `*-fix.js`、`*-patch.js`。
 - 模块通过公开对象通信，不互相覆盖函数。
-- 有明确 JS owner 的功能样式必须由该模块通过统一样式注册入口安装，不得重新拆成独立 CSS。
+- 所有运行时样式必须由五个 canonical JS 通过统一样式注册入口安装；禁止恢复 `css/` 目录或 `<link rel="stylesheet">`。
 - 选择题显示层不添加 A/B/C/D 前缀；`谁更像`内部仍使用稳定索引同步，但界面显示双方昵称。
 - 题库继续保存在 `banks/`；当前实时状态继续走 EMQX；只有完成的历史记录进入 Supabase。
 - 统一术语：`历史记录`、`双人房间`、`题组`、`上传`、`已上传云端 / 待上传 / 上传失败 / 仅本机`、`慢慢真心话`。
 
 ## CI
-`scripts/check-architecture.js` 阻止补丁式覆盖、旧名称回流、已归属 CSS 重新出现、选择题字母前缀回流，并检查关键作答控件的样式所有权。后续修改直接进入上述职责文件。
+`scripts/check-architecture.js` 阻止补丁式覆盖、旧名称回流、独立 CSS/stylesheet 链接回流、选择题字母前缀与废弃 `.option .letter` 选择器回流，并检查五个模块的样式所有权。后续修改直接进入上述职责文件。

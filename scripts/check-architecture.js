@@ -8,6 +8,8 @@ for(const p of expected)if(!loaded.includes(p))throw new Error('Missing canonica
 const extra=loaded.filter(p=>!expected.includes(p));if(extra.length)throw new Error('Non-canonical runtime scripts in index: '+extra.join(', '));
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)])}
 const files=walk(path.join(root,'js')).filter(p=>p.endsWith('.js'));
+if(/<link\s+[^>]*rel=[\"']stylesheet[\"']/i.test(index))throw new Error('Standalone stylesheet links are forbidden; styles must be owned by canonical JS modules.');
+if(fs.existsSync(path.join(root,'css')))throw new Error('css/ must not exist; all runtime styles belong to canonical JS owners.');
 const rel=files.map(p=>path.relative(root,p).replace(/\\/g,'/')).sort();
 const wanted=[...expected].sort();
 if(JSON.stringify(rel)!==JSON.stringify(wanted))throw new Error(`js/ must contain only the five canonical modules. Found: ${rel.join(', ')}`);
@@ -33,6 +35,7 @@ for(const [fn,owner] of Object.entries(ownerFile)){
 }
 
 const ownedStyles={
+  'js/core/app.js':{id:'app',retired:[]},
   'js/core/duo.js':{id:'duo',retired:['css/duo.css','css/room-code.css']},
   'js/features/quiz-flow.js':{id:'quiz-flow',retired:['css/quiz-flow.css','css/single-results.css','css/stability.css','css/round-context.css','css/session-mode.css','css/food-ui.css','css/free-choice.css']},
   'js/features/history.js':{id:'history',retired:['css/rounds.css','css/history-word.css','css/cloud-history.css']},
@@ -48,6 +51,10 @@ for(const [owner,{id,retired}] of Object.entries(ownedStyles)){
 }
 
 const quizJs=fs.readFileSync(path.join(root,'js/features/quiz-flow.js'),'utf8');
+const shellJs=fs.readFileSync(path.join(root,'js/core/shell.js'),'utf8');
+if(quizJs.includes('.quiz-card-wrap'))throw new Error('Home card CSS belongs to shell.js, not quiz-flow.js');
+if(!shellJs.includes('.quiz-card-wrap'))throw new Error('shell.js must own home card CSS');
+for(const p of files){const s=fs.readFileSync(p,'utf8');if(s.includes('.option .letter'))throw new Error('Stale .option .letter CSS is forbidden in '+path.relative(root,p));}
 const duoJs=fs.readFileSync(path.join(root,'js/core/duo.js'),'utf8');
 const uiContracts=[
   ['session-mode-backdrop','.session-mode-backdrop'],
@@ -71,4 +78,4 @@ if(/String\.fromCharCode\(65/.test(quizJs)||/String\.fromCharCode\(65/.test(duoJ
 if(!quizJs.includes("showToast('答案已保存')"))throw new Error('Custom answers must provide a saved confirmation state');
 if(!quizJs.includes("showToast('排序已保存')"))throw new Error('Rank answers must provide a saved confirmation state');
 
-console.log('Architecture check passed: five canonical modules, JS-owned feature styles, single public-function owners, no answer letter prefixes or patch chains.');
+console.log('Architecture check passed: five canonical modules own all runtime CSS, with no standalone stylesheets, stale letter selectors, or patch chains.');

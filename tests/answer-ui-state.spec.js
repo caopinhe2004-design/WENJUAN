@@ -17,7 +17,7 @@ test('所有选择题选项都不显示 A B C D 前缀', async ({ page }) => {
     await openFirst(page, id);
     await expect(page.locator('.question-card .letter')).toHaveCount(0);
     const optionTexts = await page.locator('[data-opt]').allTextContents();
-    for (const text of optionTexts) expect(text.trim()).not.toMatch(/^[A-D]\s*[·.、:：-]?\s*/);
+    for (const text of optionTexts) expect(text.trim()).not.toMatch(/^[A-D](?:\s*[·.、:：-]\s+|\s+)/);
   }
 });
 
@@ -99,13 +99,11 @@ test('双方翻牌对所有固定选择只显示答案文字，不添加字母',
   await expect(answers.nth(1)).toHaveText(expected[1]);
 });
 
-test('功能样式由对应 JS 单次注册，页面不再加载已归属 CSS', async ({ page }) => {
+test('五个 canonical JS 各自单次注册样式，页面不再加载独立 CSS', async ({ page }) => {
   await boot(page);
-  for (const id of ['duo', 'quiz-flow', 'history', 'shell']) {
+  for (const id of ['app', 'duo', 'quiz-flow', 'history', 'shell']) {
     await expect(page.locator(`style[data-owned-style="${id}"]`)).toHaveCount(1);
   }
-  const hrefs = await page.locator('link[rel="stylesheet"]').evaluateAll(nodes => nodes.map(node => node.getAttribute('href') || ''));
-  for (const retired of ['duo.css', 'room-code.css', 'quiz-flow.css', 'single-results.css', 'rounds.css', 'history-word.css', 'cloud-history.css', 'pwa.css', 'settings.css']) {
-    expect(hrefs.some(href => href.includes(retired))).toBe(false);
-  }
+  await expect(page.locator('link[rel="stylesheet"]')).toHaveCount(0);
+  await expect(page.locator('.question-card .letter')).toHaveCount(0);
 });
