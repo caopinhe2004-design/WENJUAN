@@ -97,7 +97,7 @@ test('手机和 iPad 视口可以完成饮食题', async ({ browser }) => {
 
 test('双客户端显示编辑状态但只同步已确认答案，离线后回来继续同步', async ({ browser }) => {
   const contextA = await browser.newContext();
-  const contextB = await browser.newContext();
+  const contextB = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const pageA = await contextA.newPage();
   let pageB = await contextB.newPage();
 
@@ -108,10 +108,22 @@ test('双客户端显示编辑状态但只同步已确认答案，离线后回�
   await pageA.waitForFunction(() => duo.accepted && duoPartnerOnline(), null, { timeout: 25000 });
   await pageB.waitForFunction(() => duo.accepted && duoPartnerOnline(), null, { timeout: 25000 });
 
-  await pageA.locator('[data-open="either"]').click();
-  await pageA.locator('.session-mode-backdrop [data-part="1"]').click();
-  await pageB.waitForFunction(() => route.view === 'quiz' && route.quizId === 'either', null, { timeout: 15000 });
-  await pageA.waitForFunction(() => route.view === 'quiz' && route.quizId === 'either' && route.index === 0, null, { timeout: 15000 });
+  await expect(pageB.locator('.duo-people [data-duo-person]')).toHaveCount(2);
+  await expect(pageB.locator('[data-duo-person="self"]')).toContainText('乙');
+  await expect(pageB.locator('[data-duo-person="self"]')).toContainText('在线');
+  await expect(pageB.locator('[data-duo-person="partner"]')).toContainText('甲');
+  await expect(pageB.locator('[data-duo-person="partner"]')).toContainText('在线');
+
+  await pageB.locator('.duo-panel').evaluate(el => { el.dataset.stabilityProbe = 'keep'; });
+  await pageB.waitForTimeout(3600);
+  await expect(pageB.locator('.duo-panel')).toHaveAttribute('data-stability-probe', 'keep');
+
+  await expect(pageB.locator('[data-open="either"]')).toBeEnabled();
+  await pageB.locator('[data-open="either"]').click();
+  await expect(pageB.locator('.session-mode-backdrop')).toBeVisible();
+  await pageB.locator('.session-mode-backdrop [data-part="1"]').click();
+  await pageA.waitForFunction(() => route.view === 'quiz' && route.quizId === 'either', null, { timeout: 15000 });
+  await pageB.waitForFunction(() => route.view === 'quiz' && route.quizId === 'either' && route.index === 0, null, { timeout: 15000 });
 
   const firstFixed = (await pageA.locator('[data-opt="0"]').textContent()).trim();
   await pageA.locator('[data-opt="0"]').click();
