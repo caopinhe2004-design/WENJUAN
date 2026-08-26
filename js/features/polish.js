@@ -93,9 +93,8 @@ function polishQuestion(){
   const k=duoQuestionKey(q.id,route.index),remote=duoRemoteState(),localV=state.answers?.[k],remoteV=remote?.answers?.[k];
   const localDone=typeof duoNavQuestionDone==='function'?duoNavQuestionDone(q,k,state.answers,state.ready):duoHasAnswer(localV);
   const remoteDone=typeof duoNavQuestionDone==='function'?duoNavQuestionDone(q,k,remote?.answers,remote?.ready):duoHasAnswer(remoteV);
-  if(duo.revealKey===k&&localDone&&remoteDone&&JSON.stringify(localV)!==JSON.stringify(remoteV)){
-    const out=bar.querySelector('.duo-reveal-box');if(out&&!out.querySelector('.duo-different'))out.insertAdjacentHTML('beforeend','<div class="duo-different">居然不一样</div>');
-  }
+  bar.querySelector('.duo-same')?.remove();
+  bar.querySelector('.duo-different')?.remove();
   if(localDone&&remoteDone)app.querySelector('.question-card')?.classList.add('both-ready');
 }
 function polishResult(q){
