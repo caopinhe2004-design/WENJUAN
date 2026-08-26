@@ -32,15 +32,17 @@ test('首页使用无时段限制的文学化文案，不显示数量标签', as
   const settingsBox = await settings.evaluate(el => {
     const style = getComputedStyle(el);
     const rect = el.getBoundingClientRect();
+    const expectedRightGap = Math.max(14, (window.innerWidth - 1040) / 2 + 14);
     return {
       position: style.position,
       top: rect.top,
-      rightGap: window.innerWidth - rect.right
+      rightGap: window.innerWidth - rect.right,
+      expectedRightGap
     };
   });
   expect(settingsBox.position).toBe('fixed');
   expect(settingsBox.top).toBeLessThan(60);
-  expect(settingsBox.rightGap).toBeLessThan(40);
+  expect(Math.abs(settingsBox.rightGap - settingsBox.expectedRightGap)).toBeLessThanOrEqual(3);
 
   await settings.click();
   await expect(page.locator('.settings-panel')).toBeVisible();
