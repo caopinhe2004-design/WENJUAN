@@ -5,54 +5,56 @@ async function boot(page){
   await expect(page.locator('[data-open]')).toHaveCount(13);
 }
 
-test('可以自定义短房间码并手动加入同一房间', async ({ browser }) => {
+test('首页用修改昵称替代自定义房间码', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('[data-duo-create-custom]')).toHaveCount(0);
+  const nickname = page.locator('[data-duo-nickname]');
+  await expect(nickname).toHaveText('修改昵称');
+  await nickname.click();
+  const modal = page.locator('.duo-modal');
+  await expect(modal).toContainText('修改昵称');
+  await modal.locator('input').fill('新的昵称');
+  await modal.locator('[data-ok]').click();
+  expect(await page.evaluate(() => localStorage.getItem('coupleSleepQuiz.duo.nickname'))).toBe('新的昵称');
+});
+
+test('输入房间码只加入已存在房间，不存在的房间不会被创建', async ({ browser }) => {
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();
   const pageB = await contextB.newPage();
-  const customCode = `room${Date.now().toString(36).slice(-6)}`;
 
   await boot(pageA);
-  expect(await pageA.evaluate(() => coupleRoomCode.valid('abc'))).toBe(true);
-  expect(await pageA.evaluate(() => coupleRoomCode.valid('小窝'))).toBe(true);
-
-  await pageA.locator('[data-duo-create-custom]').click();
+  await pageA.locator('[data-duo-create]').click();
   let modal = pageA.locator('.duo-modal');
-  await expect(modal).toContainText('创建双人房间');
   await modal.locator('input').fill('甲');
   await modal.locator('[data-ok]').click();
-
-  modal = pageA.locator('.duo-modal');
-  await expect(modal).toContainText('自定义房间码');
-  await modal.locator('[data-room-code-custom]').fill(customCode);
-  await modal.locator('[data-room-code-create]').click();
-  await pageA.waitForFunction(() => typeof duo !== 'undefined' && duo.active && !!document.querySelector('[data-room-code]'));
-
-  await expect(pageA.locator('[data-room-code]')).toHaveText(customCode);
+  await pageA.waitForFunction(() => typeof duo !== 'undefined' && duo.active && duo.connected && !!duo.roomCode, null, { timeout: 25000 });
+  const code = await pageA.evaluate(() => duo.roomCode);
   const roomIdA = await pageA.evaluate(() => duo.roomId);
-  expect(new URLSearchParams(new URL(pageA.url()).hash.slice(1)).get('rc')).toBe(customCode);
 
   await boot(pageB);
   await pageB.locator('[data-duo-join-code]').click();
   modal = pageB.locator('.duo-modal');
-  await expect(modal).toContainText('输入房间码');
-  await modal.locator('[data-room-code-input]').fill(customCode.toUpperCase());
+  await expect(modal).toContainText('不会创建新房间');
+  await modal.locator('[data-room-code-input]').fill(code.toUpperCase());
   await modal.locator('[data-room-code-submit]').click();
-
-  modal = pageB.locator('.duo-modal');
-  await expect(modal).toContainText('加入双人房间');
-  await modal.locator('input').fill('乙');
-  await modal.locator('[data-ok]').click();
-  await pageB.waitForFunction(() => typeof duo !== 'undefined' && duo.active);
-
-  const roomIdB = await pageB.evaluate(() => duo.roomId);
-  expect(roomIdB).toBe(roomIdA);
-  await expect(pageB.locator('[data-room-code]')).toHaveText(customCode);
+  await expect(pageB.locator('.duo-modal')).toContainText('加入双人房间', { timeout: 12000 });
+  await pageB.locator('.duo-modal input').fill('乙');
+  await pageB.locator('.duo-modal [data-ok]').click();
+  await pageB.waitForFunction(() => typeof duo !== 'undefined' && duo.active && duo.connected, null, { timeout: 25000 });
+  expect(await pageB.evaluate(() => duo.roomId)).toBe(roomIdA);
 
   await pageB.locator('[data-duo-leave]').click();
   await pageB.waitForFunction(() => !duo.active);
-  expect(new URL(pageB.url()).hash).not.toContain('rc=');
-  await expect(pageB.locator('[data-duo-join-code]')).toBeVisible();
+  const missing = `missing${Date.now().toString(36).slice(-6)}`;
+  await pageB.locator('[data-duo-join-code]').click();
+  modal = pageB.locator('.duo-modal');
+  await modal.locator('[data-room-code-input]').fill(missing);
+  await modal.locator('[data-room-code-submit]').click();
+  await expect(modal.locator('[data-room-code-error]')).toContainText('没有找到这个房间', { timeout: 12000 });
+  expect(await pageB.evaluate(() => duo.active)).toBe(false);
+  await expect(modal).toBeVisible();
 
   await contextA.close();
   await contextB.close();
