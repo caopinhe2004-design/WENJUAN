@@ -18,8 +18,10 @@ roundsHistoryDetail=function(id){
   const btn=app.querySelector('[data-delete]');if(!btn)return;
   btn.onclick=()=>{
     if(!confirm('删除这次记录？删掉后就找不回来了。'))return;
+    const entry=roundsHistoryLoad().find(x=>x.id===id)||null;
     roundsDeletedAdd(id);
     roundsHistorySave(roundsHistoryLoad().filter(x=>x.id!==id));
+    window.coupleCloud?.deleteEntry?.(id,entry).catch(()=>showToast('本地已删除，云端稍后再试'));
     roundsHistoryList();showToast('删掉了');
   };
 };
