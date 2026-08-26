@@ -1,140 +1,136 @@
 name: Verify and Deploy GitHub Pages
 
 on:
+  pull_request:
+    branches: ["main"]
   push:
     branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-  statuses: write
 
 concurrency:
-  group: "pages"
+  group: wenjuan-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  static:
+  verify:
+    name: Fast checks
     runs-on: ubuntu-latest
+    timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v4
-      - name: Mark commit as pending
-        uses: actions/github-script@v7
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          script: |
-            await github.rest.repos.createCommitStatus({
-              ...context.repo,
-              sha: context.sha,
-              state: 'pending',
-              context: 'wenjuan/pages-ci',
-              description: '正在检查五模块架构、题库和浏览器交互',
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-            });
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+          node-version: 24
       - name: Check JavaScript syntax
         run: find . -type f -name '*.js' -not -path './.git/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Check question banks
         run: node scripts/check-question-banks.js
-      - name: Check architecture
+      - name: Check architecture and patch rules
         run: node scripts/check-architecture.js
 
   browser:
-    needs: static
+    name: Browser regression
+    needs: verify
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - group: core
-            files: tests/e2e.spec.js
-          - group: ui
-            files: tests/cloud-history-ui.spec.js tests/either-title.spec.js tests/food-special.spec.js tests/free-choice.spec.js tests/home-copy.spec.js
-          - group: platform
-            files: tests/pwa.spec.js tests/room-code.spec.js
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
-      - name: Install E2E dependencies
-        run: npm install --no-audit --no-fund
+          node-version: 24
+      - name: Install test dependencies
+        run: npm install --no-audit --no-fund --prefer-offline
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run ${{ matrix.group }} browser tests
-        run: npx playwright test ${{ matrix.files }} --workers=1 --retries=0
+      - name: Run all Playwright tests
+        run: npx playwright test --workers=2 --retries=0
       - name: Upload Playwright diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: playwright-${{ matrix.group }}-diagnostics
+          name: playwright-diagnostics
           path: |
             playwright-report
             test-results
           if-no-files-found: ignore
           retention-days: 7
 
+  package:
+    name: Package Pages artifact
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [verify, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v6
+      - name: Build minimal static site
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp index.html manifest.webmanifest sw.js .nojekyll _site/
+          cp -R css js banks icons _site/
+          built_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          printf '{"sha":"%s","builtAt":"%s"}\n' "$GITHUB_SHA" "$built_at" > _site/deploy-meta.json
+          test ! -e _site/tests
+          test ! -e _site/scripts
+          test ! -e _site/.github
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
   deploy:
-    needs: [static, browser]
+    name: Deploy and verify live site
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: package
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      pages: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
-      - name: Verify deployed site
+        uses: actions/deploy-pages@v5
+      - name: Verify exact deployed commit
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
-          set -e
+          set -euo pipefail
+          modules=(
+            js/core/app.js
+            js/core/duo.js
+            js/features/quiz-flow.js
+            js/features/history.js
+            js/core/shell.js
+          )
           for attempt in $(seq 1 12); do
-            index="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL}?sha=${GITHUB_SHA}" || true)"
-            duo="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/js/core/duo.js?sha=${GITHUB_SHA}" || true)"
-            history="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/js/features/history.js?sha=${GITHUB_SHA}" || true)"
-            if printf '%s' "$index" | grep -q 'js/core/app.js' \
-              && printf '%s' "$index" | grep -q 'js/core/duo.js' \
-              && printf '%s' "$index" | grep -q 'js/features/quiz-flow.js' \
-              && printf '%s' "$index" | grep -q 'js/features/history.js' \
-              && printf '%s' "$index" | grep -q 'js/core/shell.js' \
-              && printf '%s' "$duo" | grep -q 'window.coupleDuo' \
-              && printf '%s' "$history" | grep -q 'window.coupleHistory'; then
-              echo "GitHub Pages is serving the five canonical runtime modules."
+            bust="${GITHUB_SHA}-${attempt}-$(date +%s)"
+            meta="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL%/}/deploy-meta.json?v=${bust}" || true)"
+            index="$(curl -fsSL -H 'Cache-Control: no-cache' "${PAGE_URL}?v=${bust}" || true)"
+            ok=1
+            printf '%s' "$meta" | grep -Fq "\"sha\":\"${GITHUB_SHA}\"" || ok=0
+            for module in "${modules[@]}"; do
+              printf '%s' "$index" | grep -Fq "$module" || ok=0
+              curl -fsSL -o /dev/null -H 'Cache-Control: no-cache' "${PAGE_URL%/}/${module}?v=${bust}" || ok=0
+            done
+            if [ "$ok" -eq 1 ]; then
+              echo "Live Pages site matches commit ${GITHUB_SHA} and serves all five canonical modules."
               exit 0
             fi
             echo "Waiting for Pages propagation (${attempt}/12)..."
             sleep 5
           done
-          echo "Pages deployment completed but the live site did not pass the canonical-runtime smoke check."
+          echo "Pages deployed, but live verification did not match commit ${GITHUB_SHA}."
           exit 1
-
-  report:
-    if: always()
-    needs: [static, browser, deploy]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Publish readable commit status
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const stat = '${{ needs.static.result }}';
-            const browser = '${{ needs.browser.result }}';
-            const deploy = '${{ needs.deploy.result }}';
-            const ok = stat === 'success' && browser === 'success' && deploy === 'success';
-            await github.rest.repos.createCommitStatus({
-              ...context.repo,
-              sha: context.sha,
-              state: ok ? 'success' : 'failure',
-              context: 'wenjuan/pages-ci',
-              description: ok ? '五模块架构、题库、浏览器回归和 Pages 部署均通过' : `静态=${stat}，浏览器=${browser}，部署=${deploy}`,
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-            });
