@@ -7,67 +7,7 @@ const remove=p=>{const f=path.join(root,p);if(fs.existsSync(f))fs.unlinkSync(f)}
 const section=(title,p,transform=x=>x)=>`\n/* ==========================================================================\n   ${title}\n   Consolidated from ${p}\n   ========================================================================== */\n${transform(read(p)).trim()}\n`;
 const mustReplace=(src,from,to,label)=>{if(!src.includes(from))throw new Error(`Missing refactor pattern: ${label}`);return src.replaceAll(from,to)};
 
-// Base application: bake canonical names/copy into the source of truth.
-let app=read('js/core/app.js');
-app=mustReplace(app,"title:'默契二选一',desc:'同时作答，看今晚有多同频'","title:'生活里的小选择',desc:'一些很小的选择，也会悄悄照见两个人的日常。'",'either title');
-app=mustReplace(app,"rule:'每题二选一。答完把 JSON 发给对方或 ChatGPT 比较。'","rule:'选最接近自己的答案；没有合适的，就写下自己的想法。'",'either rule');
-app=app.replaceAll("title:'睡前真心话'","title:'慢慢真心话'");
-app=app.replaceAll("desc:'每晚挑几题，不必一次答完'","desc:'不急着得出结论，只把心里的话多留一会儿。'");
-app=app.replaceAll('答案仅保存在本机','当前进度保存在本机');
-app=app.replaceAll('不登录 · 不上传答案 · 刷新也不会丢','当前进度本机保存 · 完成记录可上传云端');
-write('js/core/app.js',app);
-
-// Duo: MQTT + encrypted room + navigation runtime + presence + room codes.
-const duoParts=[
-  ['MQTT transport','js/core/mqtt-lite.js'],
-  ['Encrypted duo room','js/core/duo.js'],
-  ['Realtime/navigation runtime','js/core/runtime.js'],
-  ['Relaxed presence policy','js/core/presence-relaxed.js'],
-  ['Human-friendly room codes','js/core/room-code.js']
-];
-let duo='// Canonical dual-room module. Modify this file directly; do not add duo patch files.\n';
-for(const [title,p] of duoParts)duo+=section(title,p);
-write('js/core/duo.js',duo);
-
-// Quiz flow: all questionnaire behavior and 25-question group coordination.
-const quizParts=[
-  ['Food questionnaire behavior','js/features/food-special.js'],
-  ['Question copy cleanup','js/features/question-copy-cleanup.js'],
-  ['Question-bank migration','js/features/bank-migration.js'],
-  ['Single-player results','js/features/single-results.js'],
-  ['Interaction polish','js/features/polish.js'],
-  ['Food metadata','js/features/food-meta.js'],
-  ['Moments/result presentation','js/features/moments.js'],
-  ['Round result copy','js/features/round3.js'],
-  ['Round coordinator and archive creation','js/features/rounds.js'],
-  ['Mobile completion UX','js/features/mobile-finish.js'],
-  ['Round context','js/features/round-context.js'],
-  ['Fixed 25-question groups','js/features/session-mode.js'],
-  ['Food UI','js/features/food-ui.js']
-];
-const quizTransform=(p,src)=>{
-  if(p.endsWith('/rounds.js'))src=src.replaceAll('以前玩过的','历史记录');
-  if(p.endsWith('/session-mode.js'))src=src.replaceAll('轮','题组');
-  return src;
-};
-let quiz='// Canonical questionnaire-flow module. Modify this file directly; do not add behavior patches.\n';
-for(const [title,p] of quizParts)quiz+=section(title,p,s=>quizTransform(p,s));
-write('js/features/quiz-flow.js',quiz);
-
-// History: tombstones + real history browser + cloud persistence.
-let cloudData=read('js/core/cloud-data.js');
-cloudData=cloudData.replace("syncEntry:id=>syncLocal({manual:true,onlyId:id}),","syncEntry:id=>manualSyncOne(id,null),");
-let history='// Canonical history + cloud-backup module. Modify this file directly; do not add history fix files.\n';
-history+=section('Delete tombstones','js/features/rounds-history-delete.js');
-history+=section('History browser and Word export','js/features/history-word.js',s=>s.replaceAll('轮','题组'));
-history+=`\n/* ==========================================================================\n   Supabase encrypted backup\n   ========================================================================== */\n${cloudData.trim()}\n`;
-
-// This UI section targets the actual history-word DOM and is part of the canonical history module.
-history+=String.raw`
-/* ============================================================================
-   Cloud status + manual upload controls for the canonical history page
-   ========================================================================== */
-(function(){
+function canonicalHistoryCloudUi(){
   const baseList=roundsHistoryList;
   const baseDetail=roundsHistoryDetail;
   let detailId='';
@@ -140,8 +80,63 @@ history+=String.raw`
     list.forEach(entry=>{const t=names[entry?.quizId];if(t&&entry.quizTitle!==t){entry.quizTitle=t;changed=true}});
     if(changed)roundsHistorySave(list);
   }catch{}
-})();
-`;
+}
+
+// Base application: bake canonical names/copy into the source of truth.
+let app=read('js/core/app.js');
+app=mustReplace(app,"title:'默契二选一',desc:'同时作答，看今晚有多同频'","title:'生活里的小选择',desc:'一些很小的选择，也会悄悄照见两个人的日常。'",'either title');
+app=mustReplace(app,"rule:'每题二选一。答完把 JSON 发给对方或 ChatGPT 比较。'","rule:'选最接近自己的答案；没有合适的，就写下自己的想法。'",'either rule');
+app=app.replaceAll("title:'睡前真心话'","title:'慢慢真心话'");
+app=app.replaceAll("desc:'每晚挑几题，不必一次答完'","desc:'不急着得出结论，只把心里的话多留一会儿。'");
+app=app.replaceAll('答案仅保存在本机','当前进度保存在本机');
+app=app.replaceAll('不登录 · 不上传答案 · 刷新也不会丢','当前进度本机保存 · 完成记录可上传云端');
+write('js/core/app.js',app);
+
+// Duo: MQTT + encrypted room + navigation runtime + presence + room codes.
+const duoParts=[
+  ['MQTT transport','js/core/mqtt-lite.js'],
+  ['Encrypted duo room','js/core/duo.js'],
+  ['Realtime/navigation runtime','js/core/runtime.js'],
+  ['Relaxed presence policy','js/core/presence-relaxed.js'],
+  ['Human-friendly room codes','js/core/room-code.js']
+];
+let duo='// Canonical dual-room module. Modify this file directly; do not add duo patch files.\n';
+for(const [title,p] of duoParts)duo+=section(title,p);
+write('js/core/duo.js',duo);
+
+// Quiz flow: all questionnaire behavior and 25-question group coordination.
+const quizParts=[
+  ['Food questionnaire behavior','js/features/food-special.js'],
+  ['Question copy cleanup','js/features/question-copy-cleanup.js'],
+  ['Question-bank migration','js/features/bank-migration.js'],
+  ['Single-player results','js/features/single-results.js'],
+  ['Interaction polish','js/features/polish.js'],
+  ['Food metadata','js/features/food-meta.js'],
+  ['Moments/result presentation','js/features/moments.js'],
+  ['Round result copy','js/features/round3.js'],
+  ['Round coordinator and archive creation','js/features/rounds.js'],
+  ['Mobile completion UX','js/features/mobile-finish.js'],
+  ['Round context','js/features/round-context.js'],
+  ['Fixed 25-question groups','js/features/session-mode.js'],
+  ['Food UI','js/features/food-ui.js']
+];
+const quizTransform=(p,src)=>{
+  if(p.endsWith('/rounds.js'))src=src.replaceAll('以前玩过的','历史记录');
+  if(p.endsWith('/session-mode.js'))src=src.replaceAll('轮','题组');
+  return src;
+};
+let quiz='// Canonical questionnaire-flow module. Modify this file directly; do not add behavior patches.\n';
+for(const [title,p] of quizParts)quiz+=section(title,p,s=>quizTransform(p,s));
+write('js/features/quiz-flow.js',quiz);
+
+// History: tombstones + real history browser + cloud persistence + cloud controls.
+let cloudData=read('js/core/cloud-data.js');
+cloudData=cloudData.replace("syncEntry:id=>syncLocal({manual:true,onlyId:id}),","syncEntry:id=>manualSyncOne(id,null),");
+let history='// Canonical history + cloud-backup module. Modify this file directly; do not add history fix files.\n';
+history+=section('Delete tombstones','js/features/rounds-history-delete.js');
+history+=section('History browser and Word export','js/features/history-word.js',s=>s.replaceAll('轮','题组'));
+history+=`\n/* ==========================================================================\n   Supabase encrypted backup\n   ========================================================================== */\n${cloudData.trim()}\n`;
+history+=`\n/* ==========================================================================\n   Cloud status and manual upload controls\n   ========================================================================== */\n(${canonicalHistoryCloudUi.toString()})();\n`;
 write('js/features/history.js',history);
 
 // Shell: home presentation + PWA + settings.
@@ -162,20 +157,8 @@ index=index.replace(bankEnd,`$1\n  <script src="js/core/duo.js?v=20260826-arch1"
 write('index.html',index);
 
 // Architecture guard.
-write('scripts/check-architecture.js',String.raw`const fs=require('fs');
-const path=require('path');
-const root=path.resolve(__dirname,'..');
-const index=fs.readFileSync(path.join(root,'index.html'),'utf8');
-const expected=['js/core/app.js','js/core/duo.js','js/features/quiz-flow.js','js/features/history.js','js/core/shell.js'];
-const loaded=[...index.matchAll(/<script src="(js\/[^"?]+)[^"]*"><\/script>/g)].map(x=>x[1]);
-for(const p of expected)if(!loaded.includes(p))throw new Error('Missing canonical runtime: '+p);
-const extra=loaded.filter(p=>!expected.includes(p));if(extra.length)throw new Error('Non-canonical runtime scripts in index: '+extra.join(', '));
-function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)])}
-const files=walk(path.join(root,'js')).filter(p=>p.endsWith('.js'));
-const bad=files.filter(p=>/(?:-fix|-patch|\.fix|\.patch)\.js$/i.test(p));if(bad.length)throw new Error('Patch files are forbidden: '+bad.join(', '));
-for(const p of files){const s=fs.readFileSync(p,'utf8');if(s.includes('以前玩过的'))throw new Error('Old history terminology in '+p);if(s.includes('答案仅保存在本机')||s.includes('不上传答案'))throw new Error('Stale local-only copy in '+p)}
-console.log('Architecture check passed: 5 canonical runtime modules, no patch files, terminology clean.');
-`);
+const architectureCheck=`const fs=require('fs');\nconst path=require('path');\nconst root=path.resolve(__dirname,'..');\nconst index=fs.readFileSync(path.join(root,'index.html'),'utf8');\nconst expected=['js/core/app.js','js/core/duo.js','js/features/quiz-flow.js','js/features/history.js','js/core/shell.js'];\nconst loaded=[...index.matchAll(/<script src=\\"(js\\/[^\\"?]+)[^\\"]*\\"><\\/script>/g)].map(x=>x[1]);\nfor(const p of expected)if(!loaded.includes(p))throw new Error('Missing canonical runtime: '+p);\nconst extra=loaded.filter(p=>!expected.includes(p));if(extra.length)throw new Error('Non-canonical runtime scripts in index: '+extra.join(', '));\nfunction walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)])}\nconst files=walk(path.join(root,'js')).filter(p=>p.endsWith('.js'));\nconst bad=files.filter(p=>/(?:-fix|-patch|\\.fix|\\.patch)\\.js$/i.test(p));if(bad.length)throw new Error('Patch files are forbidden: '+bad.join(', '));\nfor(const p of files){const s=fs.readFileSync(p,'utf8');if(s.includes('以前玩过的'))throw new Error('Old history terminology in '+p);if(s.includes('答案仅保存在本机')||s.includes('不上传答案'))throw new Error('Stale local-only copy in '+p)}\nconsole.log('Architecture check passed: 5 canonical runtime modules, no patch files, terminology clean.');\n`;
+write('scripts/check-architecture.js',architectureCheck);
 
 // CI guard.
 let workflow=read('.github/workflows/pages.yml');
