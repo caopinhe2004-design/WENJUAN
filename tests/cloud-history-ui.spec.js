@@ -7,8 +7,8 @@ const VAULT = {
   encKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 };
 
-function seedHistory({ withVault = true, autoUpload = false } = {}) {
-  return () => {
+async function seedHistory(page, { withVault = true, autoUpload = false } = {}) {
+  await page.addInitScript(({ withVault, autoUpload }) => {
     const entry = {
       id: 'test-local-history',
       quizId: 'either',
@@ -36,11 +36,11 @@ function seedHistory({ withVault = true, autoUpload = false } = {}) {
       localStorage.setItem('coupleSleepQuiz.cloudHistoryVaults.v1', JSON.stringify([vault]));
       localStorage.setItem('coupleSleepQuiz.cloudHistoryPreferredVault.v1', vault.vaultHash);
     }
-  };
+  }, { withVault, autoUpload });
 }
 
 async function mockCloud(page, posts) {
-  await page.route(`${SUPABASE}**`, async route => {
+  await page.route('**/rest/v1/answer_history**', async route => {
     const request = route.request();
     if (request.method() === 'POST') {
       posts.push(JSON.parse(request.postData() || '{}'));
@@ -64,7 +64,7 @@ async function openHistory(page) {
 
 test('立即上传会真正 POST 并把本地记录标记为已上传云端', async ({ page }) => {
   const posts = [];
-  await page.addInitScript(seedHistory({ withVault: true, autoUpload: false }));
+  await seedHistory(page, { withVault: true, autoUpload: false });
   await mockCloud(page, posts);
   await openHistory(page);
 
@@ -88,7 +88,7 @@ test('立即上传会真正 POST 并把本地记录标记为已上传云端', as
 
 test('自动上传开关可见、持久化，并在开启后上传待上传记录', async ({ page }) => {
   const posts = [];
-  await page.addInitScript(seedHistory({ withVault: true, autoUpload: false }));
+  await seedHistory(page, { withVault: true, autoUpload: false });
   await mockCloud(page, posts);
   await page.goto('/');
 
@@ -107,7 +107,7 @@ test('自动上传开关可见、持久化，并在开启后上传待上传记�
 
 test('没有可用加密房间时立即上传不会伪装成上传成功', async ({ page }) => {
   const posts = [];
-  await page.addInitScript(seedHistory({ withVault: false, autoUpload: false }));
+  await seedHistory(page, { withVault: false, autoUpload: false });
   await mockCloud(page, posts);
   await openHistory(page);
 
