@@ -47,6 +47,7 @@ let duo={
   mqtt:null,connected:false,accepted:false,full:false,joinedAt:0,claims:new Map(),states:new Map(),presence:new Map(),acceptedIds:[],
   sendTimer:null,presenceTimer:null,claimTimer:null,lastError:'',pendingKey:'',navClock:0,nav:null,navApplying:false,soloState:null,offlinePresencePayload:''
 };
+const duoRevealOpen=new Set();
 if(!duo.clientId){duo.clientId=crypto.randomUUID();localStorage.setItem(DUO_CLIENT_KEY,duo.clientId)}
 
 function duoB64Url(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
@@ -117,7 +118,7 @@ function connect(){
   duo.mqtt.on('message',(topic,payload)=>handleMessage(topic,payload));
   duo.mqtt.on('close',()=>{duo.connected=false;duoRefreshUI()});duo.mqtt.on('reconnect',()=>{duo.connected=false;duoRefreshUI()});duo.mqtt.on('error',()=>{duo.lastError='实时连接失败，正在重连';duoRefreshUI()});
 }
-async function disconnect({announce=true}={}){clearTimeout(duo.sendTimer);clearInterval(duo.presenceTimer);clearInterval(duo.claimTimer);if(duo.mqtt){if(announce&&duo.mqtt.connected){await publishPresence(false).catch(()=>{});await publishClaim(false).catch(()=>{});await publish(`state/${duo.clientId}`,{v:2,kind:'state',clientId:duo.clientId,active:false},true).catch(()=>{})}duo.mqtt.end()}duo.mqtt=null;duo.connected=false;duo.accepted=false;duo.full=false;duo.claims.clear();duo.states.clear();duo.presence.clear();duo.acceptedIds=[]}
+async function disconnect({announce=true}={}){clearTimeout(duo.sendTimer);clearInterval(duo.presenceTimer);clearInterval(duo.claimTimer);if(duo.mqtt){if(announce&&duo.mqtt.connected){await publishPresence(false).catch(()=>{});await publishClaim(false).catch(()=>{});await publish(`state/${duo.clientId}`,{v:2,kind:'state',clientId:duo.clientId,active:false},true).catch(()=>{})}duo.mqtt.end()}duo.mqtt=null;duo.connected=false;duo.accepted=false;duo.full=false;duo.claims.clear();duo.states.clear();duo.presence.clear();duo.acceptedIds=[];duoRevealOpen.clear()}
 async function activate(secret,{code='',setLocation=true}={}){
   if(duo.active)await disconnect({announce:true});duo.soloState=duo.soloState||window.coupleApp.loadSoloState();await initCrypto(secret);duo.roomSecret=secret;duo.roomCode=roomCodeNormalize(code||parseHash().get(ROOM_CODE_HASH_KEY)||'');duo.active=true;duo.joinedAt=Date.now();
   const saved=roomStoreLoad();if(saved?.state)window.coupleApp.replaceState(saved.state,{persist:false});if(saved?.route)route=saved.route;duo.joinedAt=saved?.joinedAt||duo.joinedAt;duo.navClock=Number(saved?.navClock)||0;duo.nav=saved?.nav||{view:route.view,quizId:route.quizId,index:route.index,part:route.quizId?Number(state.sessions?.[route.quizId]?.part)||1:0,clock:duo.navClock,clientId:duo.clientId};
@@ -187,11 +188,13 @@ function renderHome(){
 
 function roleName(index){const id=duo.acceptedIds[index];if(!id)return index===0?'A 方':'B 方';return duo.states.get(id)?.nickname||duo.claims.get(id)?.nickname||(id===duo.clientId?duo.nickname:(index===0?'A 方':'B 方'))}
 function formatAnswer(q,i,value){if(value&&typeof value==='object'&&value.kind==='custom')return value.text||'未作答';if(!hasAnswer(value))return '未作答';if(q.type==='choice'){if(q.id==='who'&&(value===0||value===1))return `${value===0?'A':'B'} · ${roleName(Number(value))}`;const fixed=q.questions[i]?.[1]?.[Number(value)]??'未作答';return q.id==='food'?fixed:`${String.fromCharCode(65+Number(value))}${fixed}`}if(q.type==='scale')return `${value} / 5`;if(q.type==='rank')return Array.isArray(value)?value.join(' ＞ '):'未作答';return String(value)}
+function appendRevealBox(slot,q,i,local,remote,remoteValue){const box=document.createElement('div');box.className='duo-reveal-box';box.innerHTML=`<p><small>${esc(duo.nickname||'我')}</small><b>${esc(formatAnswer(q,i,local))}</b></p><p><small>${esc(remote?.nickname||'TA')}</small><b>${esc(formatAnswer(q,i,remoteValue))}</b></p>`;slot.appendChild(box)}
 function decorateQuestion(q,i){
   const slot=app.querySelector('.duo-question-slot');if(!slot)return;slot.innerHTML='';if(!duo.active)return;
-  const k=key(q.id,i),local=state.answers?.[k],remote=duoRemoteState(),remoteValue=remote?.answers?.[k],remotePending=remote?.pendingKey===k;
+  const k=key(q.id,i),local=state.answers?.[k],remote=duoRemoteState(),remoteValue=remote?.answers?.[k],remotePending=remote?.pendingKey===k,canReveal=hasAnswer(local)&&hasAnswer(remoteValue)&&!remotePending;
+  if(!canReveal)duoRevealOpen.delete(k);
   const status=document.createElement('div');status.className='duo-answer-status';status.innerHTML=`<span class="duo-answer-pill">${esc(duo.nickname||'我')} · ${hasAnswer(local)?'已作答':duo.pendingKey===k?'正在编辑':'未作答'}</span><span class="duo-answer-pill">${esc(remote?.nickname||'TA')} · ${hasAnswer(remoteValue)?'已作答':remotePending?'正在编辑':'未作答'}</span>`;slot.appendChild(status);
-  if(hasAnswer(local)&&hasAnswer(remoteValue)&&!remotePending){const reveal=document.createElement('button');reveal.type='button';reveal.className='duo-reveal';reveal.textContent='看看我们选了什么';reveal.onclick=()=>{slot.querySelector('.duo-reveal-box')?.remove();const box=document.createElement('div');box.className='duo-reveal-box';box.innerHTML=`<p><small>${esc(duo.nickname||'我')}</small><b>${esc(formatAnswer(q,i,local))}</b></p><p><small>${esc(remote?.nickname||'TA')}</small><b>${esc(formatAnswer(q,i,remoteValue))}</b></p>`;slot.appendChild(box)};slot.appendChild(reveal)}
+  if(canReveal){const reveal=document.createElement('button'),open=duoRevealOpen.has(k);reveal.type='button';reveal.className='duo-reveal';reveal.textContent=open?'收起我们选的答案':'看看我们选了什么';reveal.setAttribute('aria-expanded',String(open));reveal.onclick=()=>{if(duoRevealOpen.has(k))duoRevealOpen.delete(k);else duoRevealOpen.add(k);decorateQuestion(q,i)};slot.appendChild(reveal);if(open)appendRevealBox(slot,q,i,local,remote,remoteValue)}
 }
 function decorateResult(q){const slot=app.querySelector('.duo-result-slot');if(!slot||!duo.active)return;const remote=duoRemoteState(),done=remote?q.questions.filter((_,i)=>hasAnswer(remote.answers?.[key(q.id,i)])).length:0;slot.innerHTML=`<div class="duo-result-note">${esc(remote?.nickname||'TA')} 已完成 ${done}/${q.questions.length}</div>`}
 function duoRefreshUI(){if(route.view==='home')window.coupleShell?.refreshHomeRoom?.();else if(route.view==='quiz'&&route.quizId)decorateQuestion(quiz(route.quizId),route.index);else if(route.view==='result'&&route.quizId)decorateResult(quiz(route.quizId))}
