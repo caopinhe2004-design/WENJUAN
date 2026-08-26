@@ -46,9 +46,6 @@ jobs:
       - name: Check question banks
         run: node scripts/check-question-banks.js
 
-      - name: Sync question banks to Supabase
-        run: node scripts/sync-quiz-banks.js
-
       - name: Install E2E dependencies
         run: npm install --no-audit --no-fund
 
