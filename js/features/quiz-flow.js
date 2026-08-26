@@ -127,7 +127,7 @@ function showResumeChooser(q){
 function showPartChooser(q){
   closeSessionModal();
   const total=partCount(q),modal=document.createElement('div');modal.className='session-mode-backdrop';
-  const buttons=Array.from({length:total},(_,n)=>{const part=n+1,r=partRange(q,part);return `<button data-part="${part}"><b>第 ${part} 轮</b><span>${r.start+1}–${r.end} 题</span></button>`}).join('');
+  const buttons=Array.from({length:total},(_,n)=>{const part=n+1,r=partRange(q,part),label=q.id==='food'&&part===7?'水果':q.id==='food'&&part===8?'特殊口味':`第 ${part} 轮`;return `<button data-part="${part}"><b>${label}</b><span>${r.start+1}–${r.end} 题</span></button>`}).join('');
   modal.innerHTML=`<section class="session-mode-card" role="dialog" aria-modal="true"><small>${esc(q.title)}</small><h2>选这一轮</h2><p>每轮 25 题，想从哪一段开始都可以。</p><div class="session-parts">${buttons}</div><button class="ghost session-cancel" data-cancel>取消</button></section>`;
   document.body.appendChild(modal);
   modal.querySelectorAll('[data-part]').forEach(button=>button.onclick=()=>{const part=Number(button.dataset.part);modal.remove();applyPart(q,part,{clear:Number(sessionFor(q)?.part||0)!==part});openQuiz(q.id,0)});
@@ -151,7 +151,7 @@ function openSynced(id,part,index=0){
 }
 
 function renderChoice(q,i,item,value){
-  const options=item[1]||[],k=key(q.id,i),customOpen=!!quizDrafts.customOpen[k],customValue=quizDrafts.custom[k]??choiceAnswerText(value);
+  const options=item[1]||[],k=key(q.id,i),customOpen=!!quizDrafts.customOpen[k]||choiceAnswerIsCustom(value),customValue=quizDrafts.custom[k]??choiceAnswerText(value);
   const noLetters=q.id==='food';
   const buttons=options.map((option,n)=>`<button class="option ${!customOpen&&value===n?'selected':''}" data-opt="${n}">${noLetters?'':`<span class="letter">${String.fromCharCode(65+n)}</span>`}<span>${esc(option)}</span></button>`).join('');
   const custom=customOpen

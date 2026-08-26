@@ -145,7 +145,7 @@ function renderHome(){
 }
 
 function roleName(index){const id=duo.acceptedIds[index];if(!id)return index===0?'A 方':'B 方';return duo.states.get(id)?.nickname||duo.claims.get(id)?.nickname||(id===duo.clientId?duo.nickname:(index===0?'A 方':'B 方'))}
-function formatAnswer(q,i,value){if(value&&typeof value==='object'&&value.kind==='custom')return value.text||'未作答';if(!hasAnswer(value))return '未作答';if(q.type==='choice'){if(q.id==='who'&&(value===0||value===1))return `${value===0?'A':'B'} · ${roleName(Number(value))}`;return q.questions[i]?.[1]?.[Number(value)]??'未作答'}if(q.type==='scale')return `${value} / 5`;if(q.type==='rank')return Array.isArray(value)?value.join(' ＞ '):'未作答';return String(value)}
+function formatAnswer(q,i,value){if(value&&typeof value==='object'&&value.kind==='custom')return value.text||'未作答';if(!hasAnswer(value))return '未作答';if(q.type==='choice'){if(q.id==='who'&&(value===0||value===1))return `${value===0?'A':'B'} · ${roleName(Number(value))}`;const fixed=q.questions[i]?.[1]?.[Number(value)]??'未作答';return q.id==='food'?fixed:`${String.fromCharCode(65+Number(value))}${fixed}`}if(q.type==='scale')return `${value} / 5`;if(q.type==='rank')return Array.isArray(value)?value.join(' ＞ '):'未作答';return String(value)}
 function decorateQuestion(q,i){
   const slot=app.querySelector('.duo-question-slot');if(!slot)return;slot.innerHTML='';if(!duo.active)return;
   const k=key(q.id,i),local=state.answers?.[k],remote=duoRemoteState(),remoteValue=remote?.answers?.[k],remotePending=remote?.pendingKey===k;
