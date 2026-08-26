@@ -1,5 +1,5 @@
 const CACHE_PREFIX='two-people-one-page-';
-const CACHE_NAME=CACHE_PREFIX+'20260826-19';
+const CACHE_NAME=CACHE_PREFIX+'20260826-20';
 
 function localAsset(value){
   if(!value || value.startsWith('data:') || value.startsWith('#') || value.startsWith('mailto:') || value.startsWith('tel:'))return null;
