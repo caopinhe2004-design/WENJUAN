@@ -150,12 +150,39 @@ function showNicknameEditor(){askNickname({title:'修改昵称',confirmText:'保
 function showJoinCodeModal(){closeModal();const bg=document.createElement('div');bg.className='duo-modal-backdrop';bg.innerHTML=`<section class="duo-modal room-code-modal" role="dialog" aria-modal="true"><small>双人房间</small><h2>输入房间码</h2><p>这里只加入已经建立的房间，不会创建新房间。</p><input data-room-code-input maxlength="24" autocomplete="off" placeholder="房间码"><div class="room-code-error" data-room-code-error></div><div class="duo-modal-actions"><button class="ghost" data-cancel>取消</button><button class="primary" data-room-code-submit>加入房间</button></div></section>`;document.body.appendChild(bg);const input=bg.querySelector('[data-room-code-input]'),submit=bg.querySelector('[data-room-code-submit]'),error=bg.querySelector('[data-room-code-error]');bg.querySelector('[data-cancel]').onclick=closeModal;submit.onclick=async()=>{const code=roomCodeNormalize(input.value);if(!roomCodeValid(code)){error.textContent='房间码需为 1–24 位，并且只使用字母、数字、中文、短横线或下划线';return}submit.disabled=true;submit.textContent='查找中…';error.textContent='正在确认房间是否存在…';try{const secret=await roomCodeSecret(code),exists=await roomCodeExists(secret);if(exists===null){error.textContent='暂时无法确认房间，请检查网络后重试';return}if(!exists){error.textContent='没有找到这个房间，请检查房间码';return}const go=async()=>{await activate(secret,{code});home()};if(duo.nickname){closeModal();await go()}else{closeModal();askNickname({title:'加入双人房间',confirmText:'加入房间',onDone:go})}}catch{error.textContent='房间查找失败，请稍后重试'}finally{if(document.body.contains(bg)){submit.disabled=false;submit.textContent='加入房间'}}};requestAnimationFrame(()=>input.focus())}
 async function createGeneratedRoom(){const code=roomCodeGenerate(),go=async()=>{const secret=await roomCodeSecret(code);await activate(secret,{code});home()};if(duo.nickname)await go();else askNickname({title:'创建双人房间',confirmText:'创建房间',onDone:go})}
 
+function roomMemberInitial(name,fallback){const text=String(name||fallback||'').trim();return Array.from(text)[0]||fallback||'·'}
+function roomPanelSignature(){
+  if(!duo.active)return `solo|${duo.nickname}`;
+  const rid=remoteId(),online=duoPartnerOnline(),partner=rid?remoteNickname():'TA';
+  return ['room',duo.connected?'1':'0',duo.accepted?'1':'0',rid||'',online?'1':'0',duo.nickname,partner,duo.roomCode,duo.lastError].join('|');
+}
+function bindRoomPanel(box){
+  box.querySelector('[data-duo-create]')?.addEventListener('click',createGeneratedRoom);
+  box.querySelector('[data-duo-nickname]')?.addEventListener('click',showNicknameEditor);
+  box.querySelector('[data-duo-join-code]')?.addEventListener('click',showJoinCodeModal);
+  box.querySelector('[data-copy-invite]')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(inviteURL());showToast('邀请链接已复制')}catch{showToast('复制失败，请从地址栏复制')}});
+  box.querySelector('[data-copy-room-code]')?.addEventListener('click',async()=>{if(!duo.roomCode)return;try{await navigator.clipboard.writeText(duo.roomCode);showToast('房间码已复制')}catch{showToast('复制失败，请手动复制房间码')}});
+  box.querySelector('[data-duo-leave]')?.addEventListener('click',duoLeaveRoom);
+}
 function renderHome(){
-  if(route.view!=='home')return;app.querySelector('.duo-panel')?.remove();const hero=app.querySelector('.hero');if(!hero)return;
-  const box=document.createElement('section');box.className='duo-panel';
-  if(!duo.active){box.innerHTML=`<div class="duo-panel-head"><div><h3>把这一页递给 TA</h3><p>开一个只属于你们的房间，把房间码发过去。等对方进来，就从同一道题开始。</p></div><span class="duo-badge"><i class="duo-dot off"></i>单人模式</span></div><div class="duo-actions duo-entry-actions"><button class="duo-primary" data-duo-create>邀请 TA 一起来</button><button data-duo-nickname>修改昵称</button><button data-duo-join-code>输入房间码</button></div>`;box.querySelector('[data-duo-create]').onclick=createGeneratedRoom;box.querySelector('[data-duo-nickname]').onclick=showNicknameEditor;box.querySelector('[data-duo-join-code]').onclick=showJoinCodeModal}
-  else{const online=duoPartnerOnline(),partner=remoteNickname();box.innerHTML=`<div class="duo-panel-head"><div><h3>${online?`${esc(partner)} 已经在这里了`:'这一页还为 TA 留着'}</h3><p>${online?'挑一页吧，一起慢慢答。':'房间不会因为短暂离开就立即失效，回来可以继续。'}</p></div><span class="duo-badge"><i class="duo-dot ${online?'on':'wait'}"></i>${online?'两个人在线':'等待对方'}</span></div><div class="room-code-card"><small>房间码</small><b data-room-code>${esc(duo.roomCode||'链接房间')}</b></div><div class="duo-actions"><button data-copy-invite>复制邀请链接</button><button data-duo-nickname>修改昵称</button><button data-duo-leave>退出房间</button></div>`;box.querySelector('[data-copy-invite]').onclick=async()=>{try{await navigator.clipboard.writeText(inviteURL());showToast('邀请链接已复制')}catch{showToast('复制失败，请从地址栏复制')}};box.querySelector('[data-duo-nickname]').onclick=showNicknameEditor;box.querySelector('[data-duo-leave]').onclick=duoLeaveRoom;if(!duo.navApplying&&duo.nav?.view!=='home')routeChanged({view:'home',quizId:null,index:0,part:0})}
-  hero.insertAdjacentElement('afterend',box);
+  if(route.view!=='home')return;
+  const hero=app.querySelector('.hero');if(!hero)return;
+  let box=app.querySelector('.duo-panel');
+  const signature=roomPanelSignature();
+  if(box?.dataset.roomSignature===signature)return;
+  if(!box){box=document.createElement('section');box.className='duo-panel';hero.insertAdjacentElement('afterend',box)}
+  box.dataset.roomSignature=signature;
+  if(!duo.active){
+    box.innerHTML=`<div class="duo-panel-head"><div><div class="duo-room-kicker">双人房间</div><h3>把这一页递给 TA</h3><p>开一个只属于你们的房间，把房间码发过去。等对方进来，就从同一道题开始。</p></div><span class="duo-badge"><i class="duo-dot off"></i>单人模式</span></div><div class="duo-actions duo-entry-actions"><button class="duo-primary" data-duo-create>邀请 TA 一起来</button><button data-duo-nickname>修改昵称</button><button data-duo-join-code>输入房间码</button></div>`;
+  }else{
+    const rid=remoteId(),partner=rid?remoteNickname():'TA',partnerOnline=duoPartnerOnline(),selfOnline=duo.connected&&duo.accepted;
+    const partnerStatus=partnerOnline?'在线':rid?'暂时离线':'等待加入';
+    const roomStatus=partnerOnline?'两个人在线':duo.connected?'等待对方':'正在重连';
+    const roomLead=partnerOnline?'你们都到了，直接从下面挑一套题开始。':rid?'TA 暂时离开了，回来后还能继续这个房间。':'把房间码或邀请链接发给 TA，加入后会出现在右边。';
+    box.innerHTML=`<div class="duo-panel-head"><div><div class="duo-room-kicker">双人房间</div><h3>${partnerOnline?'你们都到了':'房间已经准备好'}</h3><p>${esc(roomLead)}</p></div><span class="duo-badge"><i class="duo-dot ${partnerOnline?'on':duo.connected?'wait':'off'}"></i>${esc(roomStatus)}</span></div><div class="duo-people" aria-label="房间成员"><div class="duo-person ${selfOnline?'is-online':'is-waiting'}" data-duo-person="self"><div class="duo-person-main"><span class="duo-person-avatar">${esc(roomMemberInitial(duo.nickname,'我'))}</span><div class="duo-person-copy"><small>你</small><b>${esc(duo.nickname||'我')}</b></div></div><span class="duo-person-status"><i class="duo-dot ${selfOnline?'on':'off'}"></i>${selfOnline?'在线':'正在连接'}</span></div><div class="duo-person ${partnerOnline?'is-online':'is-waiting'}" data-duo-person="partner"><div class="duo-person-main"><span class="duo-person-avatar">${esc(roomMemberInitial(partner,'T'))}</span><div class="duo-person-copy"><small>TA</small><b>${esc(partner)}</b></div></div><span class="duo-person-status"><i class="duo-dot ${partnerOnline?'on':rid?'off':'wait'}"></i>${esc(partnerStatus)}</span></div></div><div class="duo-room-code-card"><div><span>房间码</span><strong data-room-code>${esc(duo.roomCode||'链接房间')}</strong></div>${duo.roomCode?'<button type="button" data-copy-room-code>复制房间码</button>':''}<p>也可以直接复制邀请链接发给 TA。</p></div><div class="duo-actions"><button data-copy-invite>复制邀请链接</button><button data-duo-nickname>修改昵称</button><button data-duo-leave>退出房间</button></div>`;
+    if(!duo.navApplying&&duo.nav?.view!=='home')routeChanged({view:'home',quizId:null,index:0,part:0});
+  }
+  bindRoomPanel(box);
 }
 
 function roleName(index){const id=duo.acceptedIds[index];if(!id)return index===0?'A 方':'B 方';return duo.states.get(id)?.nickname||duo.claims.get(id)?.nickname||(id===duo.clientId?duo.nickname:(index===0?'A 方':'B 方'))}
