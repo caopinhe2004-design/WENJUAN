@@ -115,6 +115,12 @@
     }
     hero.insertAdjacentElement('afterend',box);
   };
+  const roomCodeBaseHome=home;
+  home=function(){
+    const out=roomCodeBaseHome();
+    if(route.view==='home'&&!app.querySelector('.duo-panel'))duoInjectHome();
+    return out;
+  };
   const initialCode=roomCodeFromHash();
   if(validRoomCode(initialCode)){
     const persist=()=>{if(duo.active){rememberRoomCode(initialCode);if(route.view==='home')duoInjectHome();return true}return false};
