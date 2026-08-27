@@ -9,6 +9,13 @@
   "display": "standalone",
   "background_color": "#f7f1ee",
   "theme_color": "#f7f1ee",
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://caopinhe2004-design.github.io/WENJUAN/manifest.webmanifest",
+      "id": "https://caopinhe2004-design.github.io/WENJUAN/"
+    }
+  ],
   "icons": [
     {
       "src": "icons/icon-192-v3.png",
