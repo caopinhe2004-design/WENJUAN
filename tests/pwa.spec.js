@@ -11,6 +11,24 @@ async function openSettings(page){
   await expect(page.locator('.settings-panel')).toBeVisible();
 }
 
+async function mockNativeInstall(page){
+  await page.evaluate(()=>{
+    window.__nativeInstallPrompted=false;
+    const event=new Event('beforeinstallprompt',{cancelable:true});
+    event.prompt=async()=>{window.__nativeInstallPrompted=true};
+    event.userChoice=Promise.resolve({outcome:'dismissed',platform:'web'});
+    window.dispatchEvent(event);
+  });
+}
+
+async function expectDirectInstall(page){
+  await openSettings(page);
+  await page.locator('[data-settings-install]').click();
+  await expect.poll(()=>page.evaluate(()=>window.__nativeInstallPrompted)).toBe(true);
+  await expect(page.locator('.settings-panel')).toHaveCount(0);
+  await expect(page.locator('.pwa-guide')).toHaveCount(0);
+}
+
 test('PWA 图标、直接首页、设置入口和离线启动可用', async ({ page, context }) => {
   await boot(page);
 
@@ -78,40 +96,31 @@ test('历史记录从设置进入，首页不再单独占位置', async ({ page 
   await expect(page.locator('[data-settings-open]')).toHaveCount(0);
 });
 
-test('安卓安装优先直接弹出原生安装框，不能直装时显示说明', async ({ browser }) => {
+test('安卓优先直接弹原生安装框，原生能力不可用后才显示教程', async ({ browser }) => {
   const context=await browser.newContext({
     viewport:{width:390,height:844},isMobile:true,
     userAgent:'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Mobile Safari/537.36'
   });
   const page=await context.newPage();await boot(page);
+  await mockNativeInstall(page);
+  await expectDirectInstall(page);
 
   await openSettings(page);
   await page.locator('[data-settings-install]').click();
   await expect(page.locator('.pwa-guide')).toContainText('浏览器菜单');
   await expect(page.locator('.pwa-guide')).toContainText('安装应用');
-  await page.locator('[data-pwa-close]').click();
-
-  await page.evaluate(()=>{
-    window.__nativeInstallPrompted=false;
-    const event=new Event('beforeinstallprompt',{cancelable:true});
-    event.prompt=async()=>{window.__nativeInstallPrompted=true};
-    event.userChoice=Promise.resolve({outcome:'dismissed',platform:'web'});
-    window.dispatchEvent(event);
-  });
-  await openSettings(page);
-  await page.locator('[data-settings-install]').click();
-  await expect.poll(()=>page.evaluate(()=>window.__nativeInstallPrompted)).toBe(true);
-  await expect(page.locator('.settings-panel')).toHaveCount(0);
-  await expect(page.locator('.pwa-guide')).toHaveCount(0);
   await context.close();
 });
 
-test('iPhone 安装说明明确提示 Safari 底部分享按钮', async ({ browser }) => {
+test('iPhone 有原生安装能力时先直装，否则显示 Safari 教程', async ({ browser }) => {
   const context=await browser.newContext({
     viewport:{width:390,height:844},isMobile:true,
     userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'
   });
   const page=await context.newPage();await boot(page);
+  await mockNativeInstall(page);
+  await expectDirectInstall(page);
+
   await openSettings(page);
   await page.locator('[data-settings-install]').click();
   await expect(page.locator('.pwa-guide')).toContainText('Safari');
@@ -121,7 +130,7 @@ test('iPhone 安装说明明确提示 Safari 底部分享按钮', async ({ brows
   await context.close();
 });
 
-test('iPadOS 桌面模式安装说明指向 Safari 顶部工具栏', async ({ browser }) => {
+test('iPadOS 原生能力不可用时安装说明指向 Safari 顶部工具栏', async ({ browser }) => {
   const context=await browser.newContext({
     viewport:{width:1024,height:768},
     userAgent:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15'
@@ -139,12 +148,15 @@ test('iPadOS 桌面模式安装说明指向 Safari 顶部工具栏', async ({ br
   await context.close();
 });
 
-test('微信内置浏览器提示先切换系统浏览器', async ({ browser }) => {
+test('微信同样优先尝试原生安装，拿不到原生能力才提示切换浏览器', async ({ browser }) => {
   const context=await browser.newContext({
     viewport:{width:390,height:844},isMobile:true,
     userAgent:'Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 Chrome/151.0.0.0 Mobile Safari/537.36 MicroMessenger/8.0.60'
   });
   const page=await context.newPage();await boot(page);
+  await mockNativeInstall(page);
+  await expectDirectInstall(page);
+
   await openSettings(page);
   await page.locator('[data-settings-install]').click();
   await expect(page.locator('.pwa-guide')).toContainText('当前浏览器不能直接安装');
