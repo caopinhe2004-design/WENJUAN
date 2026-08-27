@@ -52,15 +52,49 @@
   <script src="js/core/shell.js?v=20260826-ownfinal1"></script>
   <script>
     (function(){
+      function isAppleMobile(){
+        const userAgent=navigator.userAgent||'';
+        return /iphone|ipad|ipod/i.test(userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+      }
+      function installedCopy(){
+        if(isAppleMobile())return {
+          detail:'已经添加到主屏幕，可直接从主屏幕打开',
+          toast:'已经添加到主屏幕'
+        };
+        if(/android/i.test(navigator.userAgent||''))return {
+          detail:'已经安装，可从桌面或应用列表中打开',
+          toast:'已经安装到桌面'
+        };
+        return {
+          detail:'已经安装，可从开始菜单或浏览器应用中打开',
+          toast:'已经安装到桌面'
+        };
+      }
+      function applySafariUnknownRow(button){
+        if(!button||!isAppleMobile()||window.__pwaInstallPrompt)return;
+        const title=button.querySelector('b'),detail=button.querySelector('small');
+        if(title)title.textContent='添加到主屏幕';
+        if(detail)detail.textContent='如果已经添加过，请直接从主屏幕打开；否则点此查看添加方法';
+      }
+      function patchSafariGuide(){
+        if(!isAppleMobile())return;
+        const guide=document.querySelector('.pwa-guide');
+        if(!guide)return;
+        const lead=guide.querySelector('.pwa-guide-lead');
+        if(lead)lead.textContent='Safari 无法确认这一页是否已经添加过。如果主屏幕已经有「两个人的一页」，请直接从主屏幕打开；否则按下面步骤添加。';
+      }
       async function syncInstallRow(){
         const button=document.querySelector('[data-settings-install]');
         if(!button)return;
         const status=await window.__pwaInstalledStatus?.();
-        if(status!=='installed')return;
-        button.dataset.pwaInstalled='1';
-        const title=button.querySelector('b'),detail=button.querySelector('small');
-        if(title)title.textContent='已安装到桌面';
-        if(detail)detail.textContent='已经安装，可从开始菜单或 Edge 应用中打开';
+        if(status==='installed'){
+          button.dataset.pwaInstalled='1';
+          const copy=installedCopy(),title=button.querySelector('b'),detail=button.querySelector('small');
+          if(title)title.textContent=isAppleMobile()?'已添加到主屏幕':'已安装到桌面';
+          if(detail)detail.textContent=copy.detail;
+          return;
+        }
+        applySafariUnknownRow(button);
       }
       document.addEventListener('click',function(event){
         if(event.target.closest?.('[data-settings-open]'))setTimeout(syncInstallRow,0);
@@ -73,7 +107,12 @@
         const status=button.dataset.pwaInstalled==='1'?'installed':await window.__pwaInstalledStatus?.();
         if(status==='installed'){
           document.querySelector('.settings-backdrop')?.remove();
-          showToast('已经安装到桌面，可从开始菜单或 Edge 应用中打开');
+          showToast(installedCopy().toast);
+          return;
+        }
+        if(isAppleMobile()&&!window.__pwaInstallPrompt){
+          window.couplePWA?.showGuide?.();
+          setTimeout(patchSafariGuide,0);
           return;
         }
         if(/Edg\//.test(navigator.userAgent||'')&&!window.__pwaInstallPrompt){
