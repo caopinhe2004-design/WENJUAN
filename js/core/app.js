@@ -8,8 +8,7 @@ function installOwnedStyle(id,css){
   const key=String(id||'').trim();
   if(!key||document.querySelector(`style[data-owned-style="${CSS.escape(key)}"]`))return;
   const style=document.createElement('style');style.dataset.ownedStyle=key;style.textContent=String(css||'');
-  const anchor=[...document.querySelectorAll('link[rel="stylesheet"]')].find(link=>String(link.getAttribute('href')||'').includes('css/mobile-finish.css'));
-  if(anchor)document.head.insertBefore(style,anchor);else document.head.appendChild(style);
+  document.head.appendChild(style);
 }
 window.coupleStyles={install:installOwnedStyle};
 
