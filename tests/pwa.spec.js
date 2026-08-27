@@ -78,7 +78,7 @@ test('历史记录从设置进入，首页不再单独占位置', async ({ page 
   await expect(page.locator('[data-settings-open]')).toHaveCount(0);
 });
 
-test('安卓安装从设置里打开，并承接原生安装事件', async ({ browser }) => {
+test('安卓安装优先直接弹出原生安装框，不能直装时显示说明', async ({ browser }) => {
   const context=await browser.newContext({
     viewport:{width:390,height:844},isMobile:true,
     userAgent:'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Mobile Safari/537.36'
@@ -92,14 +92,17 @@ test('安卓安装从设置里打开，并承接原生安装事件', async ({ br
   await page.locator('[data-pwa-close]').click();
 
   await page.evaluate(()=>{
+    window.__nativeInstallPrompted=false;
     const event=new Event('beforeinstallprompt',{cancelable:true});
-    event.prompt=async()=>{};
+    event.prompt=async()=>{window.__nativeInstallPrompted=true};
     event.userChoice=Promise.resolve({outcome:'dismissed',platform:'web'});
     window.dispatchEvent(event);
   });
   await openSettings(page);
   await page.locator('[data-settings-install]').click();
-  await expect(page.locator('[data-pwa-native]')).toHaveText('立即安装');
+  await expect.poll(()=>page.evaluate(()=>window.__nativeInstallPrompted)).toBe(true);
+  await expect(page.locator('.settings-panel')).toHaveCount(0);
+  await expect(page.locator('.pwa-guide')).toHaveCount(0);
   await context.close();
 });
 
