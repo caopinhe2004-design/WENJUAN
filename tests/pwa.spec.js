@@ -11,14 +11,14 @@ async function openSettings(page){
   await expect(page.locator('.settings-panel')).toBeVisible();
 }
 
-async function mockNativeInstall(page){
-  await page.evaluate(()=>{
+async function mockNativeInstall(page,{outcome='accepted',throws=false}={}){
+  await page.evaluate(({outcome,throws})=>{
     window.__nativeInstallPrompted=false;
     const event=new Event('beforeinstallprompt',{cancelable:true});
-    event.prompt=async()=>{window.__nativeInstallPrompted=true};
-    event.userChoice=Promise.resolve({outcome:'dismissed',platform:'web'});
+    event.prompt=async()=>{window.__nativeInstallPrompted=true;if(throws)throw new Error('mock install failure')};
+    event.userChoice=Promise.resolve({outcome,platform:'web'});
     window.dispatchEvent(event);
-  });
+  },{outcome,throws});
 }
 
 async function expectDirectInstall(page){
@@ -94,6 +94,34 @@ test('历史记录从设置进入，首页不再单独占位置', async ({ page 
   await expect(page.locator('.history-word-page')).toBeVisible();
   await expect(page.getByRole('heading',{name:'历史记录'})).toBeVisible();
   await expect(page.locator('[data-settings-open]')).toHaveCount(0);
+});
+
+test('桌面端等待稍晚到达的原生安装事件并直接弹安装框', async ({ page }) => {
+  await boot(page);
+  await openSettings(page);
+  await page.evaluate(()=>{
+    window.__nativeInstallPrompted=false;
+    setTimeout(()=>{
+      const event=new Event('beforeinstallprompt',{cancelable:true});
+      event.prompt=async()=>{window.__nativeInstallPrompted=true};
+      event.userChoice=Promise.resolve({outcome:'accepted',platform:'web'});
+      window.dispatchEvent(event);
+    },120);
+  });
+  await page.locator('[data-settings-install]').click();
+  await expect.poll(()=>page.evaluate(()=>window.__nativeInstallPrompted)).toBe(true);
+  await expect(page.locator('.pwa-guide')).toHaveCount(0);
+});
+
+test('桌面端原生安装调用失败时自动退回安装教程', async ({ page }) => {
+  await boot(page);
+  await mockNativeInstall(page,{throws:true});
+  await openSettings(page);
+  await page.locator('[data-settings-install]').click();
+  await expect.poll(()=>page.evaluate(()=>window.__nativeInstallPrompted)).toBe(true);
+  await expect(page.locator('.pwa-guide')).toBeVisible();
+  await expect(page.locator('.pwa-guide')).toContainText('浏览器菜单');
+  await expect(page.locator('.pwa-guide')).toContainText('安装应用');
 });
 
 test('安卓优先直接弹原生安装框，原生能力不可用后才显示教程', async ({ browser }) => {
