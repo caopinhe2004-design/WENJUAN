@@ -1,0 +1,27 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Twice daily. Scheduled workflows run in UTC.
+    - cron: '17 1,13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Supabase database
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 20 \
+            -H "apikey: sb_publishable_5rFMYKyWWmDn13g6OQEXVg_uDo41sK5" \
+            "https://szbwcbhujnawcahsgitk.supabase.co/rest/v1/answer_history?select=id&limit=1" \
+            > /dev/null
+          echo "Supabase keepalive request succeeded."
